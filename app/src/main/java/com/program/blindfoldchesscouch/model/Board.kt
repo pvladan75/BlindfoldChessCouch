@@ -177,4 +177,36 @@ class Board {
     fun clearBoard() {
         pieces.clear()
     }
+    /**
+     * NOVO: Čisti tablu i postavlja figure na osnovu FEN stringa.
+     * Podržava samo deo FEN-a koji se odnosi na poziciju figura.
+     */
+    fun loadFen(fen: String) {
+        clearBoard() // Prvo očistimo tablu
+
+        val fenPositionPart = fen.substringBefore(' ')
+        var rank = 8
+        var file = 'a'
+
+        for (char in fenPositionPart) {
+            when {
+                char == '/' -> {
+                    rank--
+                    file = 'a'
+                }
+                char.isDigit() -> {
+                    val emptySquares = char.digitToInt()
+                    file = (file.code + emptySquares).toChar()
+                }
+                else -> {
+                    val square = Square.fromAlgebraicNotation("$file$rank")
+                    val piece = Piece.fromFenChar(char)
+                    if (square != null && piece != null) {
+                        placePiece(square, piece)
+                    }
+                    file = (file.code + 1).toChar()
+                }
+            }
+        }
+    }
 }

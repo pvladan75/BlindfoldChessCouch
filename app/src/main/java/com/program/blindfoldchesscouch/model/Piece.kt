@@ -64,4 +64,23 @@ data class Piece(val type: PieceType, val color: Color) {
     override fun toString(): String {
         return "${color.name} ${type.name}"
     }
+    companion object {
+        /**
+         * Kreira Piece objekat iz FEN karaktera.
+         * Velika slova su za bele, mala za crne.
+         */
+        fun fromFenChar(char: Char): Piece? {
+            val color = if (char.isUpperCase()) Color.WHITE else Color.BLACK
+            val pieceType = when (char.uppercaseChar()) {
+                'P' -> PieceType.PAWN
+                'N' -> PieceType.KNIGHT
+                'B' -> PieceType.BISHOP
+                'R' -> PieceType.ROOK
+                'Q' -> PieceType.QUEEN
+                'K' -> PieceType.KING
+                else -> return null // Nepoznat karakter
+            }
+            return Piece(pieceType, color)
+        }
+    }
 }
