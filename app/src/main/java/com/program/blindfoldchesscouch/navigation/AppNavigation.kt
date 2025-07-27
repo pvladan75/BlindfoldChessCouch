@@ -6,6 +6,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.program.blindfoldchesscouch.ui.screens.MainMenuScreen
 import com.program.blindfoldchesscouch.ui.screens.Module1Screen
+import com.program.blindfoldchesscouch.ui.screens.Module3Screen // <-- NOVI IMPORT
 import com.program.blindfoldchesscouch.ui.screens.ModuleScreen
 import com.program.blindfoldchesscouch.viewmodel.GameViewModel
 
@@ -40,20 +41,21 @@ fun AppNavigation(gameViewModel: GameViewModel) {
             )
         }
 
-        // Namenska ruta samo za naš implementirani Modul 1
-        composable(trainingModules[0].route) { // Pretpostavljamo da je Modul 1 prvi na listi
-            Module1Screen() // Pozivamo namenski ekran za Modul 1
-        }
-
-        // Generičke rute za sve ostale module koje još nismo napravili.
-        // `drop(1)` preskače prvi element liste (Modul 1)
-        trainingModules.drop(1).forEach { module ->
+        // --- NOVI, UNAPREĐENI NAČIN RUKOVANJA RUTAMA ---
+        // Prolazimo kroz SVE module definisane u TrainingModules.kt
+        trainingModules.forEach { module ->
             composable(module.route) {
-                // Ostali moduli i dalje koriste stari, generički ekran.
-                ModuleScreen(
-                    module = module,
-                    gameViewModel = gameViewModel
-                )
+                // Koristimo `when` da odlučimo koji ekran da prikažemo za koju rutu
+                when (module.route) {
+                    "module_1" -> Module1Screen() // Namenska ruta za Modul 1
+                    "module_3" -> Module3Screen() // Namenska ruta za Modul 3
+
+                    // Svi ostali moduli će koristiti generički ekran
+                    else -> ModuleScreen(
+                        module = module,
+                        gameViewModel = gameViewModel
+                    )
+                }
             }
         }
     }
