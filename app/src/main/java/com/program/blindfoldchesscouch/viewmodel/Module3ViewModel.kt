@@ -70,7 +70,7 @@ class Module3ViewModel(application: Application) : AndroidViewModel(application)
             val totalPieces = newSelection.values.sum()
             currentState.copy(
                 pieceSelection = newSelection,
-                isStartButtonEnabled = totalPieces >= 2
+                isStartButtonEnabled = totalPieces >= 3
             )
         }
     }
