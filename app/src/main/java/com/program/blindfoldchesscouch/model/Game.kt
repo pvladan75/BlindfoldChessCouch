@@ -2,19 +2,15 @@
 package com.program.blindfoldchesscouch.model
 
 /**
- * Represents the current state of a chess game, primarily for training purposes,
- * without full validation of complex chess rules like check, checkmate, or castling legality.
- * Focuses on board state, current player, and move history.
+ * Represents the current state of a chess game.
  */
 class Game {
-    private val board: Board = Board()
+    private var board: Board = Board()
     var currentPlayer: Color = Color.WHITE
-        private set // Only mutable within the Game class
+        private set
 
     private val moveHistory: MutableList<Move> = mutableListOf()
 
-    // These flags will still exist for potential future use or basic display,
-    // but their updates will be simplified as we won't validate castling moves in detail.
     var whiteKingSideCastlingAllowed: Boolean = true
         private set
     var whiteQueenSideCastlingAllowed: Boolean = true
@@ -35,14 +31,11 @@ class Game {
         resetGame()
     }
 
-    /**
-     * Resets the game to the standard starting position.
-     */
     fun resetGame() {
         board.setupStartingPosition()
         currentPlayer = Color.WHITE
         moveHistory.clear()
-        whiteKingSideCastlingAllowed = true // Reset to true
+        whiteKingSideCastlingAllowed = true
         whiteQueenSideCastlingAllowed = true
         blackKingSideCastlingAllowed = true
         blackQueenSideCastlingAllowed = true
@@ -51,45 +44,20 @@ class Game {
         fullMoveNumber = 1
     }
 
-    /**
-     * Returns the current state of the board.
-     */
     fun getCurrentBoard(): Board {
         return board
     }
 
-    /**
-     * Attempts to make a move. This simplified version performs basic checks
-     * (e.g., piece ownership) but *does not validate complex chess rules*
-     * like check, checkmate, castling legality, or path obstructions for sliding pieces.
-     * It relies on Board.makeMove() for physical board changes.
-     *
-     * @param move The move to attempt.
-     * @return True if the move was "syntactically" valid and made, false otherwise.
-     */
     fun tryMakeMove(move: Move): Boolean {
         val pieceToMove = board.getPieceAt(move.from)
-
-        // Basic validation: Check if there's a piece at 'from' square and if it belongs to current player
         if (pieceToMove == null || pieceToMove.color != currentPlayer) {
-            println("Invalid move: No piece or not current player's piece at ${move.from}")
             return false
         }
-
-        // For training modules, we might assume the moves provided are 'intended' moves,
-        // and focus on visualizing their outcome.
         val success = board.makeMove(move)
-
         if (success) {
-            moveHistory.add(move) // Add to history only if move was successful
-
-            // Update simplified game state based on the move
+            moveHistory.add(move)
             updateGameState(move, movingPiece = pieceToMove)
-
-            // Switch current player
             currentPlayer = currentPlayer.opposite()
-
-            // Increment full move number if Black just moved
             if (currentPlayer == Color.WHITE) {
                 fullMoveNumber++
             }
@@ -98,45 +66,29 @@ class Game {
         return false
     }
 
-    /**
-     * Updates internal game state variables after a move is made.
-     * This includes simplified updates for castling rights, en passant target, half-move clock.
-     * Complex castling/check logic is omitted.
-     */
     private fun updateGameState(move: Move, movingPiece: Piece) {
-        // Reset en passant target square at start of turn
         enPassantTargetSquare = null
-
-        // Handle half-move clock
         if (movingPiece.type == PieceType.PAWN || move.capturedPiece != null) {
-            halfMoveClock = 0 // Reset if pawn moves or capture occurs
+            halfMoveClock = 0
         } else {
-            halfMoveClock++ // Increment otherwise
+            halfMoveClock++
         }
-
-        // --- Simplified update for castling rights ---
         if (movingPiece.type == PieceType.KING) {
-            when (movingPiece.color) {
-                Color.WHITE -> {
-                    whiteKingSideCastlingAllowed = false
-                    whiteQueenSideCastlingAllowed = false
-                }
-                Color.BLACK -> {
-                    blackKingSideCastlingAllowed = false
-                    blackQueenSideCastlingAllowed = false
-                }
+            if (movingPiece.color == Color.WHITE) {
+                whiteKingSideCastlingAllowed = false
+                whiteQueenSideCastlingAllowed = false
+            } else {
+                blackKingSideCastlingAllowed = false
+                blackQueenSideCastlingAllowed = false
             }
         }
         if (movingPiece.type == PieceType.ROOK) {
-            when (movingPiece.color) {
-                Color.WHITE -> {
-                    if (move.from == Square('a', 1)) whiteQueenSideCastlingAllowed = false
-                    if (move.from == Square('h', 1)) whiteKingSideCastlingAllowed = false
-                }
-                Color.BLACK -> {
-                    if (move.from == Square('a', 8)) blackQueenSideCastlingAllowed = false
-                    if (move.from == Square('h', 8)) blackKingSideCastlingAllowed = false
-                }
+            if (movingPiece.color == Color.WHITE) {
+                if (move.from == Square('a', 1)) whiteQueenSideCastlingAllowed = false
+                if (move.from == Square('h', 1)) whiteKingSideCastlingAllowed = false
+            } else {
+                if (move.from == Square('a', 8)) blackQueenSideCastlingAllowed = false
+                if (move.from == Square('h', 8)) blackKingSideCastlingAllowed = false
             }
         }
         if (move.capturedPiece?.type == PieceType.ROOK) {
@@ -145,9 +97,6 @@ class Game {
             if (move.to == Square('a', 8)) blackQueenSideCastlingAllowed = false
             if (move.to == Square('h', 8)) blackKingSideCastlingAllowed = false
         }
-
-
-        // Handle en passant target square (if a pawn moves two squares)
         if (movingPiece.type == PieceType.PAWN) {
             if (movingPiece.color == Color.WHITE && move.from.rank == 2 && move.to.rank == 4) {
                 enPassantTargetSquare = Square(move.from.file, 3)
@@ -157,26 +106,78 @@ class Game {
         }
     }
 
-    /**
-     * Generiše sve pseudo-legalne poteze za trenutnog igrača.
-     * Koristi MoveGenerator za izračunavanje poteza za svaku figuru.
-     */
     fun getPseudoLegalMoves(): List<Move> {
         val allMoves = mutableListOf<Move>()
-        val allPieces = board.getAllPieces() // Dobijamo mapu svih figura
-
+        val allPieces = board.getAllPieces()
         for ((square, piece) in allPieces) {
-            // Generišemo poteze samo za figure igrača koji je na potezu
             if (piece.color == currentPlayer) {
-                // Prosleđujemo ceo 'game' objekat (this) našem generatoru
                 allMoves.addAll(MoveGenerator.generateMovesForPiece(piece, square, this))
             }
         }
-
-        // Možemo ostaviti logovanje za debagovanje
-        // println("Generated ${allMoves.size} moves for $currentPlayer.")
-        // allMoves.forEach { println(it) }
-
         return allMoves
     }
+
+    /**
+     * Proverava da li je dato polje napadnuto od strane igrača date boje.
+     */
+    fun isSquareAttacked(square: Square, attackerColor: Color): Boolean {
+        val allPieces = board.getAllPieces()
+        for ((pieceSquare, piece) in allPieces) {
+            if (piece.color == attackerColor) {
+                val moves = MoveGenerator.generateMovesForPiece(piece, pieceSquare, this)
+                if (moves.any { it.to == square }) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * Proverava da li je kralj igrača date boje trenutno u šahu.
+     */
+    fun isKingInCheck(color: Color): Boolean {
+        val kingSquare = board.findKing(color)
+        return if (kingSquare != null) {
+            isSquareAttacked(kingSquare, color.opposite())
+        } else {
+            false
+        }
+    }
+
+    /**
+     * Vraća listu svih potpuno legalnih poteza za trenutnog igrača.
+     */
+    fun getLegalMoves(): List<Move> {
+        val pseudoLegalMoves = getPseudoLegalMoves()
+        val legalMoves = mutableListOf<Move>()
+        val originalPlayer = this.currentPlayer
+
+        for (move in pseudoLegalMoves) {
+            val tempGame = this.copyAndMakeMove(move)
+            val kingSquare = tempGame.board.findKing(originalPlayer)
+            if (kingSquare != null && !tempGame.isSquareAttacked(kingSquare, tempGame.currentPlayer)) {
+                legalMoves.add(move)
+            }
+        }
+        return legalMoves
+    }
+
+    private fun copyAndMakeMove(move: Move): Game {
+        val newGame = Game()
+        newGame.board = this.board.copy()
+        newGame.currentPlayer = this.currentPlayer
+        newGame.board.makeMove(move)
+        newGame.currentPlayer = newGame.currentPlayer.opposite()
+        return newGame
+    }
+} // <-- КРАЈ Game КЛАСЕ
+
+/**
+ * Proširujemo Board klasu sa pomoćnom funkcijom za pronalaženje kralja.
+ */
+fun Board.findKing(color: Color): Square? {
+    return this.getAllPieces().entries.find { (_, piece) ->
+        piece.type == PieceType.KING && piece.color == color
+    }?.key
 }
