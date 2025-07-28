@@ -1,6 +1,7 @@
 // ui/screens/Module3Screen.kt
 package com.program.blindfoldchesscouch.ui.screens
 
+import android.Manifest
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -9,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +24,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.program.blindfoldchesscouch.model.*
 import com.program.blindfoldchesscouch.util.getDrawableResourceForPiece
 import com.program.blindfoldchesscouch.viewmodel.*
@@ -139,7 +145,8 @@ private fun TestView(uiState: Module3UiState, viewModel: Module3ViewModel) {
                     uiState = uiState,
                     onStartInteraction = { viewModel.onStartPuzzleInteraction() },
                     onShowPieces = { viewModel.onShowPiecesClicked() },
-                    onNextPuzzle = { viewModel.onLoadNextPuzzle() }
+                    onNextPuzzle = { viewModel.onLoadNextPuzzle() },
+                    onVoiceInput = { viewModel.startVoiceRecognition() }
                 )
             }
 
@@ -162,25 +169,30 @@ private fun TestView(uiState: Module3UiState, viewModel: Module3ViewModel) {
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun TestControlPanel(
     uiState: Module3UiState,
     onStartInteraction: () -> Unit,
     onShowPieces: () -> Unit,
-    onNextPuzzle: () -> Unit
+    onNextPuzzle: () -> Unit,
+    onVoiceInput: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.defaultMinSize(minHeight = 100.dp)
+    val micPermissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 100.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         when (uiState.puzzlePhase) {
             PuzzlePhase.MEMORIZE -> {
                 Button(
                     onClick = onStartInteraction,
-                    modifier = Modifier.fillMaxWidth().height(50.dp).padding(vertical = 8.dp)
-                ) {
-                    Text("Start", fontSize = 18.sp)
-                }
+                    modifier = Modifier.weight(1f).height(50.dp)
+                ) { Text("Start", fontSize = 18.sp) }
             }
             PuzzlePhase.AWAITING_INPUT -> {
                 if (uiState.isBlindfoldMode && !uiState.forceShowPieces) {
@@ -192,14 +204,36 @@ private fun TestControlPanel(
             PuzzlePhase.FAILED_REVEALED -> {
                 Button(
                     onClick = onNextPuzzle,
-                    modifier = Modifier.fillMaxWidth().height(50.dp).padding(vertical = 8.dp)
-                ) {
-                    Text("Sledeća pozicija", fontSize = 18.sp)
+                    modifier = Modifier.weight(1f).height(50.dp)
+                ) { Text("Sledeća pozicija", fontSize = 18.sp) }
+            }
+            else -> { }
+        }
+
+        if (uiState.puzzlePhase != PuzzlePhase.AWAITING_INPUT || (uiState.isBlindfoldMode && !uiState.forceShowPieces)) {
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
+        IconButton(
+            onClick = {
+                if (micPermissionState.status.isGranted) {
+                    onVoiceInput()
+                } else {
+                    micPermissionState.launchPermissionRequest()
                 }
-            }
-            else -> {
-                // Za COMPLETED ili druge faze, ne prikazujemo ništa ovde
-            }
+            },
+            modifier = Modifier.size(50.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Unesi odgovor glasom",
+                modifier = Modifier.fillMaxSize(0.7f),
+                tint = when {
+                    uiState.isListeningForVoice -> Color.Red
+                    micPermissionState.status.isGranted -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                }
+            )
         }
     }
 }
@@ -312,7 +346,11 @@ fun Module3ChessBoard(
                         else -> baseColor
                     }
                     Box(
-                        modifier = Modifier.weight(1f).aspectRatio(1f).background(finalColor).clickable { onSquareClick(square) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .background(finalColor)
+                            .clickable { onSquareClick(square) },
                         contentAlignment = Alignment.Center
                     ) {
                         board.getPieceAt(square)?.let { piece ->
@@ -320,7 +358,10 @@ fun Module3ChessBoard(
                             Image(
                                 painter = painterResource(id = getDrawableResourceForPiece(piece = piece)),
                                 contentDescription = piece.toString(),
-                                modifier = Modifier.fillMaxSize().padding(4.dp).alpha(if (isVisible) 1f else 0f)
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(4.dp)
+                                    .alpha(if (isVisible) 1f else 0f)
                             )
                         }
                     }
