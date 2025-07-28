@@ -1,16 +1,19 @@
 // ui/screens/Module3Screen.kt
 package com.program.blindfoldchesscouch.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-// IKONICE VIŠE NISU POTREBNE, PA SU IMPORTOVI UKLONJENI
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -18,14 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.program.blindfoldchesscouch.model.Board
-import com.program.blindfoldchesscouch.model.Move
-import com.program.blindfoldchesscouch.model.PieceType
-import com.program.blindfoldchesscouch.model.Square
+import com.program.blindfoldchesscouch.model.*
 import com.program.blindfoldchesscouch.util.getDrawableResourceForPiece
-import com.program.blindfoldchesscouch.viewmodel.Module3UiState
-import com.program.blindfoldchesscouch.viewmodel.Module3ViewModel
-import com.program.blindfoldchesscouch.viewmodel.TestState
+import com.program.blindfoldchesscouch.viewmodel.*
 import java.util.concurrent.TimeUnit
 
 // --- Boje za ovaj modul ---
@@ -40,19 +38,19 @@ private val feedbackWrongColor = Color(0xAAE74C3C)
 fun Module3Screen(viewModel: Module3ViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
 
-    when (uiState.testState) {
-        TestState.SETUP -> SetupView(uiState, viewModel)
-        TestState.IN_PROGRESS -> TestView(uiState, viewModel)
-        TestState.FINISHED -> {
+    when (uiState.sessionState) {
+        SessionState.SETUP -> SetupView(uiState, viewModel)
+        SessionState.IN_PROGRESS -> TestView(uiState, viewModel)
+        SessionState.FINISHED -> {
             TestView(uiState, viewModel)
-            TestEndDialog(uiState = uiState, onDismiss = { viewModel.onDismissDialog() })
+            SessionEndDialog(uiState = uiState, onDismiss = { viewModel.onDismissDialog() })
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SetupView(uiState: Module3UiState, viewModel: Module3ViewModel) {
+private fun SetupView(uiState: Module3UiState, viewModel: Module3ViewModel) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Modul 3: Interaktivni Parovi") }) }
     ) { padding ->
@@ -65,14 +63,12 @@ fun SetupView(uiState: Module3UiState, viewModel: Module3ViewModel) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Izaberite figure za vežbu:", style = MaterialTheme.typography.titleLarge)
-
             PieceCountSelector(PieceType.QUEEN, uiState.pieceSelection[PieceType.QUEEN] ?: 0, 0..1) { count -> viewModel.onPieceCountChange(PieceType.QUEEN, count) }
             PieceCountSelector(PieceType.ROOK, uiState.pieceSelection[PieceType.ROOK] ?: 0, 0..2) { count -> viewModel.onPieceCountChange(PieceType.ROOK, count) }
             PieceCountSelector(PieceType.BISHOP, uiState.pieceSelection[PieceType.BISHOP] ?: 0, 0..2) { count -> viewModel.onPieceCountChange(PieceType.BISHOP, count) }
             PieceCountSelector(PieceType.KNIGHT, uiState.pieceSelection[PieceType.KNIGHT] ?: 0, 0..2) { count -> viewModel.onPieceCountChange(PieceType.KNIGHT, count) }
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
-
             Text("Izaberite dužinu testa:", style = MaterialTheme.typography.titleMedium)
             val lengthOptions = listOf(10, 20, 30)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -85,20 +81,25 @@ fun SetupView(uiState: Module3UiState, viewModel: Module3ViewModel) {
                 }
             }
 
-            Spacer(Modifier.weight(1f))
-
-            if (uiState.infoMessage != null) {
-                Text(uiState.infoMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Blindfold Mod")
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = uiState.isBlindfoldMode,
+                    onCheckedChange = { viewModel.onBlindfoldToggled(it) }
+                )
             }
 
+            Spacer(Modifier.weight(1f))
+            if(uiState.infoMessage != null) {
+                Text(uiState.infoMessage, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 8.dp))
+            }
             Button(
-                onClick = { viewModel.onStartTest() },
+                onClick = { viewModel.onStartSession() },
                 enabled = uiState.isStartButtonEnabled,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
-                Text("Start Test", fontSize = 18.sp)
+                Text("Započni Sesiju (10 zagonetki)", fontSize = 18.sp)
             }
         }
     }
@@ -107,29 +108,102 @@ fun SetupView(uiState: Module3UiState, viewModel: Module3ViewModel) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TestView(uiState: Module3UiState, viewModel: Module3ViewModel) {
-    Scaffold(
-        topBar = { TopAppBar(title = { TestStatsPanel(uiState) }) }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Module3ChessBoard(
-                board = uiState.board,
-                moveHighlight = uiState.moveHighlight,
-                feedbackSquare = uiState.feedbackSquare,
-                onSquareClick = { viewModel.onSquareClicked(it) }
-            )
+    Scaffold { padding ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 8.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TestStatsPanel(uiState = uiState)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Module3ChessBoard(
+                    board = uiState.board,
+                    moveHighlight = uiState.moveHighlight,
+                    feedbackSquare = uiState.feedbackSquare,
+                    isBlindfold = uiState.isBlindfoldMode,
+                    visiblePieceSquare = uiState.visiblePieceForAnimation,
+                    forceShowPieces = uiState.forceShowPieces,
+                    puzzlePhase = uiState.puzzlePhase,
+                    onSquareClick = { viewModel.onSquareClicked(it) }
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                TestControlPanel(
+                    uiState = uiState,
+                    onStartInteraction = { viewModel.onStartPuzzleInteraction() },
+                    onShowPieces = { viewModel.onShowPiecesClicked() },
+                    onNextPuzzle = { viewModel.onLoadNextPuzzle() }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = uiState.puzzlePhase == PuzzlePhase.COMPLETED,
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Card(
+                    elevation = CardDefaults.cardElevation(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Text(
+                        text = "Zagonetka ${uiState.stats.puzzlesCompleted + 1} rešena!",
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(32.dp)
+                    )
+                }
+            }
         }
     }
 }
 
-/**
- * Pomoćna komponenta za biranje broja figura. SAD KORISTI TEKST UMESTO IKONICA.
- */
+@Composable
+private fun TestControlPanel(
+    uiState: Module3UiState,
+    onStartInteraction: () -> Unit,
+    onShowPieces: () -> Unit,
+    onNextPuzzle: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.defaultMinSize(minHeight = 100.dp)
+    ) {
+        when (uiState.puzzlePhase) {
+            PuzzlePhase.MEMORIZE -> {
+                Button(
+                    onClick = onStartInteraction,
+                    modifier = Modifier.fillMaxWidth().height(50.dp).padding(vertical = 8.dp)
+                ) {
+                    Text("Start", fontSize = 18.sp)
+                }
+            }
+            PuzzlePhase.AWAITING_INPUT -> {
+                if (uiState.isBlindfoldMode && !uiState.forceShowPieces) {
+                    Button(onClick = onShowPieces, modifier = Modifier.padding(vertical = 8.dp)) {
+                        Text("Pokaži figure (neuspešno)")
+                    }
+                }
+            }
+            PuzzlePhase.FAILED_REVEALED -> {
+                Button(
+                    onClick = onNextPuzzle,
+                    modifier = Modifier.fillMaxWidth().height(50.dp).padding(vertical = 8.dp)
+                ) {
+                    Text("Sledeća pozicija", fontSize = 18.sp)
+                }
+            }
+            else -> {
+                // Za COMPLETED ili druge faze, ne prikazujemo ništa ovde
+            }
+        }
+    }
+}
+
 @Composable
 private fun PieceCountSelector(pieceType: PieceType, currentCount: Int, range: IntRange, onCountChange: (Int) -> Unit) {
     Row(
@@ -138,18 +212,16 @@ private fun PieceCountSelector(pieceType: PieceType, currentCount: Int, range: I
         modifier = Modifier.fillMaxWidth()
     ) {
         Image(
-            painter = painterResource(id = getDrawableResourceForPiece(com.program.blindfoldchesscouch.model.Piece(pieceType, com.program.blindfoldchesscouch.model.Color.WHITE))),
+            painter = painterResource(id = getDrawableResourceForPiece(Piece(pieceType, com.program.blindfoldchesscouch.model.Color.WHITE))),
             contentDescription = pieceType.name,
             modifier = Modifier.size(40.dp)
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { if (currentCount > range.first) onCountChange(currentCount - 1) }, enabled = currentCount > range.first) {
-                // ZAMENA IKONICE SA TEKSTOM
                 Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Text("$currentCount", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
             IconButton(onClick = { if (currentCount < range.last) onCountChange(currentCount + 1) }, enabled = currentCount < range.last) {
-                // ZAMENA IKONICE SA TEKSTOM
                 Text("+", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -158,49 +230,60 @@ private fun PieceCountSelector(pieceType: PieceType, currentCount: Int, range: I
 
 @Composable
 private fun TestStatsPanel(uiState: Module3UiState) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        val time = String.format(
-            "%02d:%02d",
-            TimeUnit.MILLISECONDS.toMinutes(uiState.stats.timerMillis),
-            TimeUnit.MILLISECONDS.toSeconds(uiState.stats.timerMillis) -
-                    TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(uiState.stats.timerMillis))
+        Text(
+            text = "Zagonetka: ${uiState.stats.puzzlesCompleted + 1}/10",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
         )
-        Text("Potez: ${uiState.currentStepIndex + 1}/${uiState.selectedPuzzleLength}")
-        Text("Vreme: $time")
-        Text("Greške: ${uiState.stats.mistakes}")
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Greške: ${uiState.stats.mistakes}")
+
+            val time = String.format("%02d:%02d",
+                TimeUnit.MILLISECONDS.toMinutes(uiState.stats.sessionTimerMillis),
+                TimeUnit.MILLISECONDS.toSeconds(uiState.stats.sessionTimerMillis) -
+                        TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(uiState.stats.sessionTimerMillis))
+            )
+            Text("Vreme: $time")
+
+            Box(modifier = Modifier.width(IntrinsicSize.Min)) {
+                if (uiState.puzzlePhase != PuzzlePhase.MEMORIZE) {
+                    Text("Potez: ${uiState.currentStepIndex + 1}/${uiState.totalStepsInPuzzle}")
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun TestEndDialog(uiState: Module3UiState, onDismiss: () -> Unit) {
-    val time = String.format(
-        "%02d:%02d",
-        TimeUnit.MILLISECONDS.toMinutes(uiState.stats.timerMillis),
-        TimeUnit.MILLISECONDS.toSeconds(uiState.stats.timerMillis) -
-                TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(uiState.stats.timerMillis))
+private fun SessionEndDialog(uiState: Module3UiState, onDismiss: () -> Unit) {
+    val time = String.format("%02d:%02d",
+        TimeUnit.MILLISECONDS.toMinutes(uiState.stats.sessionTimerMillis),
+        TimeUnit.MILLISECONDS.toSeconds(uiState.stats.sessionTimerMillis) -
+                TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(uiState.stats.sessionTimerMillis))
     )
-    val pieceConfigText = uiState.pieceSelection
-        .filter { it.value > 0 }
-        .map { "${it.key.name} x${it.value}" }.joinToString()
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Kraj Testa!") },
+        title = { Text("Kraj Sesije!") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Dužina testa: ${uiState.selectedPuzzleLength} poteza")
-                Text("Korišćene figure: $pieceConfigText")
+                Text("Uspešno rešeno: ${10 - uiState.stats.failedPuzzles}/10")
+                Text("Ukupno grešaka (klikovi): ${uiState.stats.mistakes}")
                 Divider()
                 Text("Finalno vreme: $time", fontWeight = FontWeight.Bold)
-                Text("Broj grešaka: ${uiState.stats.mistakes}", fontWeight = FontWeight.Bold)
             }
         },
         confirmButton = {
-            Button(onClick = onDismiss) { Text("Novi Test") }
+            Button(onClick = onDismiss) { Text("Počni novu sesiju") }
         }
     )
 }
@@ -210,6 +293,10 @@ fun Module3ChessBoard(
     board: Board,
     moveHighlight: Move?,
     feedbackSquare: Pair<Square, Boolean>?,
+    isBlindfold: Boolean,
+    visiblePieceSquare: Square?,
+    forceShowPieces: Boolean,
+    puzzlePhase: PuzzlePhase,
     onSquareClick: (Square) -> Unit
 ) {
     Column(modifier = Modifier.border(2.dp, Color.Black)) {
@@ -218,29 +305,22 @@ fun Module3ChessBoard(
                 for (file in 'a'..'h') {
                     val square = Square(file, rank)
                     val baseColor = if ((file - 'a' + rank) % 2 == 0) darkSquareColorM3 else lightSquareColorM3
-
                     val finalColor = when (square) {
                         feedbackSquare?.first -> if (feedbackSquare.second) feedbackCorrectColor else feedbackWrongColor
                         moveHighlight?.from -> moveFromColor
                         moveHighlight?.to -> moveToColor
                         else -> baseColor
                     }
-
                     Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(1f)
-                            .background(finalColor)
-                            .clickable { onSquareClick(square) },
+                        modifier = Modifier.weight(1f).aspectRatio(1f).background(finalColor).clickable { onSquareClick(square) },
                         contentAlignment = Alignment.Center
                     ) {
                         board.getPieceAt(square)?.let { piece ->
+                            val isVisible = puzzlePhase == PuzzlePhase.MEMORIZE || !isBlindfold || square == visiblePieceSquare || forceShowPieces
                             Image(
                                 painter = painterResource(id = getDrawableResourceForPiece(piece = piece)),
                                 contentDescription = piece.toString(),
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(4.dp)
+                                modifier = Modifier.fillMaxSize().padding(4.dp).alpha(if (isVisible) 1f else 0f)
                             )
                         }
                     }

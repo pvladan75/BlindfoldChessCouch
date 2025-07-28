@@ -209,4 +209,10 @@ class Board {
             }
         }
     }
+
+    fun copy(): Board {
+        val newBoard = Board()
+        newBoard.pieces.putAll(this.pieces)
+        return newBoard
+    }
 }
