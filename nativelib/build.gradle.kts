@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.program.nativelib"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         minSdk = 27
