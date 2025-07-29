@@ -1,11 +1,12 @@
 // in viewmodel/Module2ViewModel.kt
 package com.program.blindfoldchesscouch.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.program.blindfoldchesscouch.model.Game
-import com.program.blindfoldchesscouch.model.Move
-import com.program.blindfoldchesscouch.model.Square
+import com.program.blindfoldchesscouch.model.*
+import com.program.blindfoldchesscouch.tts.TtsHelper
+import com.program.blindfoldchesscouch.util.Module2PuzzleLoader
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,65 +15,85 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+// Stanje sesije za Modul 2
+enum class Module2SessionState { SETUP, IN_PROGRESS }
+
 data class Module2UiState(
+    val sessionState: Module2SessionState = Module2SessionState.SETUP,
+    val selectedDifficulty: String = "easy",
+    val currentPuzzles: List<Module2Puzzle> = emptyList(),
     val game: Game = Game(),
     val arePiecesVisible: Boolean = true,
-    val statusMessage: String = "Pritisni START za početak",
+    val statusMessage: String = "Izaberi težinu i pritisni START",
     val selectedSquare: Square? = null,
     val isGameOver: Boolean = false,
     val puzzleTimerMillis: Long = 0L,
     val lastMove: Move? = null,
-    val currentPuzzleIndex: Int = 0, // <-- NOVO: Pratimo na kojoj smo zagonetki
-    val totalPuzzles: Int = 0 // <-- NOVO: Znamo ukupan broj
+    val currentPuzzleIndex: Int = 0,
+    val totalPuzzles: Int = 0,
+    val isReviewMode: Boolean = false,
+    val reviewBoard: Board = Board(),
+    val reviewMoveIndex: Int = -1,
+    val fullMoveHistory: List<Move> = emptyList()
 )
 
-class Module2ViewModel : ViewModel() {
+class Module2ViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(Module2UiState())
     val uiState: StateFlow<Module2UiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private val ttsHelper = TtsHelper(application)
 
-    // NOVO: Lista FEN stringova za sve zagonetke
-    private val puzzleFenList = listOf(
-        "8/8/1k6/8/7Q/4K3/8/8 w - - 0 1", // Prva pozicija
-        "5R2/8/8/8/2k5/6K1/8/8 w - - 0 1"  // Druga pozicija koju si predložio
-    )
+    fun onDifficultySelected(difficulty: String) {
+        _uiState.update { it.copy(selectedDifficulty = difficulty) }
+    }
 
-    init {
-        _uiState.update { it.copy(totalPuzzles = puzzleFenList.size) }
-        loadPuzzle(0)
+    fun onStartSession() {
+        val puzzles = Module2PuzzleLoader.loadPuzzles(getApplication(), uiState.value.selectedDifficulty)
+        if (puzzles.isNotEmpty()) {
+            _uiState.update {
+                it.copy(
+                    sessionState = Module2SessionState.IN_PROGRESS,
+                    currentPuzzles = puzzles.shuffled(),
+                    totalPuzzles = puzzles.size
+                )
+            }
+            loadPuzzle(0)
+        } else {
+            _uiState.update { it.copy(statusMessage = "Greška: Fajl '${uiState.value.selectedDifficulty}_puzzles.json' nije pronađen.") }
+        }
     }
 
     private fun loadPuzzle(index: Int) {
         stopTimer()
+        val currentState = uiState.value
+        if (index >= currentState.currentPuzzles.size) return
+
         viewModelScope.launch {
             val newGame = Game()
-            val fen = puzzleFenList[index]
+            val fen = currentState.currentPuzzles[index].fen
             newGame.getCurrentBoard().loadFen(fen)
-            // Resetujemo stanje za novu zagonetku
             _uiState.update {
-                Module2UiState(
+                it.copy(
                     game = newGame,
                     currentPuzzleIndex = index,
-                    totalPuzzles = puzzleFenList.size
+                    statusMessage = "Pritisni START za početak",
+                    arePiecesVisible = true,
+                    isGameOver = false,
+                    isReviewMode = false,
+                    lastMove = null,
+                    puzzleTimerMillis = 0L,
+                    selectedSquare = null
                 )
             }
         }
     }
 
-    // --- NOVE FUNKCIJE ---
     fun onNextPositionClicked() {
-        val nextIndex = (uiState.value.currentPuzzleIndex + 1) % puzzleFenList.size // Vraća na početak
+        val nextIndex = (uiState.value.currentPuzzleIndex + 1) % uiState.value.totalPuzzles
         loadPuzzle(nextIndex)
     }
-
-    fun onToggleVisibilityClicked() {
-        if (uiState.value.isGameOver || uiState.value.statusMessage == "Pritisni START za početak") return
-        _uiState.update { it.copy(arePiecesVisible = !it.arePiecesVisible) }
-    }
-    // --- KRAJ NOVIH FUNKCIJA ---
-
 
     fun onStartClicked() {
         _uiState.update {
@@ -85,11 +106,11 @@ class Module2ViewModel : ViewModel() {
     }
 
     fun onSquareClicked(square: Square) {
+        if (uiState.value.isReviewMode) return
         val currentState = _uiState.value
         if (currentState.arePiecesVisible || currentState.isGameOver) return
 
         val selected = currentState.selectedSquare
-
         if (selected == null) {
             val piece = currentState.game.getCurrentBoard().getPieceAt(square)
             if (piece != null && piece.color == currentState.game.currentPlayer) {
@@ -103,21 +124,15 @@ class Module2ViewModel : ViewModel() {
 
             if (intendedMove != null) {
                 currentState.game.tryMakeMove(intendedMove)
-
+                ttsHelper.speak("${intendedMove.from.toAlgebraicNotation()} ${intendedMove.to.toAlgebraicNotation()}")
                 if (currentState.game.getLegalMoves().isEmpty()) {
                     stopTimer()
                     val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Čestitamo!" else "Pat! Nerešeno."
-                    _uiState.update { it.copy(selectedSquare = null, statusMessage = message, isGameOver = true, lastMove = intendedMove) }
+                    ttsHelper.speak(message)
+                    _uiState.update { it.copy(selectedSquare = null, statusMessage = message, isGameOver = true, lastMove = intendedMove, arePiecesVisible = true) }
                     return
                 }
-
-                _uiState.update {
-                    it.copy(
-                        selectedSquare = null,
-                        statusMessage = "Crni razmišlja...",
-                        lastMove = intendedMove
-                    )
-                }
+                _uiState.update { it.copy(selectedSquare = null, statusMessage = "Crni razmišlja...", lastMove = intendedMove) }
                 playBlacksResponse()
             } else {
                 _uiState.update { it.copy(selectedSquare = null, statusMessage = "Nije validan potez. Beli je ponovo na potezu.") }
@@ -130,15 +145,15 @@ class Module2ViewModel : ViewModel() {
             delay(1000)
             val currentState = _uiState.value
             val blackLegalMoves = currentState.game.getLegalMoves()
-
             if (blackLegalMoves.isNotEmpty()) {
                 val blackMove = blackLegalMoves.random()
                 currentState.game.tryMakeMove(blackMove)
-
+                ttsHelper.speak("${blackMove.from.toAlgebraicNotation()} ${blackMove.to.toAlgebraicNotation()}")
                 if (currentState.game.getLegalMoves().isEmpty()) {
                     stopTimer()
                     val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Crni je pobedio." else "Pat! Nerešeno."
-                    _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove) }
+                    ttsHelper.speak(message)
+                    _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove, arePiecesVisible = true) }
                 } else {
                     _uiState.update { it.copy(statusMessage = "Beli je na potezu.", lastMove = blackMove) }
                 }
@@ -146,23 +161,15 @@ class Module2ViewModel : ViewModel() {
         }
     }
 
-    private fun startTimer() {
-        timerJob?.cancel()
-        _uiState.update { it.copy(puzzleTimerMillis = 0L) } // Resetuj tajmer na 0
-        timerJob = viewModelScope.launch {
-            while (true) {
-                delay(1000)
-                _uiState.update { it.copy(puzzleTimerMillis = it.puzzleTimerMillis + 1000) }
-            }
-        }
-    }
-
-    private fun stopTimer() {
-        timerJob?.cancel()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        stopTimer()
-    }
+    fun onEnterReviewMode() { val history = uiState.value.game.getMoveHistory(); if (history.isEmpty()) return; _uiState.update { it.copy(isReviewMode = true, fullMoveHistory = history, arePiecesVisible = true) }; goToMoveInReview(history.lastIndex) }
+    fun onExitReviewMode() { _uiState.update { it.copy(isReviewMode = false, arePiecesVisible = it.isGameOver) } }
+    fun onNextMoveInReview() { val currentIndex = uiState.value.reviewMoveIndex; if (currentIndex < uiState.value.fullMoveHistory.lastIndex) { goToMoveInReview(currentIndex + 1) } }
+    fun onPreviousMoveInReview() { val currentIndex = uiState.value.reviewMoveIndex; if (currentIndex > -1) { goToMoveInReview(currentIndex - 1) } }
+    fun onGoToStartOfReview() { goToMoveInReview(-1) }
+    fun onGoToEndOfReview() { val lastIndex = uiState.value.fullMoveHistory.lastIndex; goToMoveInReview(lastIndex) }
+    private fun goToMoveInReview(index: Int) { val initialFen = uiState.value.currentPuzzles[uiState.value.currentPuzzleIndex].fen; val history = uiState.value.fullMoveHistory; val tempGame = Game(); tempGame.getCurrentBoard().loadFen(initialFen); for (i in 0..index) { tempGame.tryMakeMove(history[i]) }; _uiState.update { it.copy(reviewBoard = tempGame.getCurrentBoard(), reviewMoveIndex = index) } }
+    fun onToggleVisibilityClicked() { if (uiState.value.isGameOver || uiState.value.statusMessage == "Pritisni START za početak") return; _uiState.update { it.copy(arePiecesVisible = !it.arePiecesVisible) } }
+    private fun startTimer() { timerJob?.cancel(); _uiState.update { it.copy(puzzleTimerMillis = 0L) }; timerJob = viewModelScope.launch { while (true) { delay(1000); _uiState.update { it.copy(puzzleTimerMillis = it.puzzleTimerMillis + 1000) } } } }
+    private fun stopTimer() { timerJob?.cancel() }
+    override fun onCleared() { super.onCleared(); stopTimer(); ttsHelper.shutdown() }
 }
