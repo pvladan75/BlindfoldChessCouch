@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "BlindfoldChessCouch"
 include(":app")
-include(":nativelib")
