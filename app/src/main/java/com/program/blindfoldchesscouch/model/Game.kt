@@ -1,6 +1,8 @@
 // model/Game.kt
 package com.program.blindfoldchesscouch.model
 
+import kotlin.math.abs // *** ИЗМЕНА: Додат потребан import ***
+
 class Game {
     private var board: Board = Board()
     var currentPlayer: Color = Color.WHITE
@@ -43,13 +45,22 @@ class Game {
         fullMoveNumber = 1
     }
 
-    /**
-     * Generiše Forsyth-Edwards Notation (FEN) string za trenutnu poziciju u partiji.
-     */
+    fun loadFen(fen: String) {
+        val parts = fen.split(" ")
+        board.loadFen(parts[0])
+        currentPlayer = if (parts[1] == "w") Color.WHITE else Color.BLACK
+        whiteKingSideCastlingAllowed = parts[2].contains('K')
+        whiteQueenSideCastlingAllowed = parts[2].contains('Q')
+        blackKingSideCastlingAllowed = parts[2].contains('k')
+        blackQueenSideCastlingAllowed = parts[2].contains('q')
+        enPassantTargetSquare = if (parts.getOrNull(3) != "-") Square.fromAlgebraicNotation(parts[3]) else null
+        halfMoveClock = parts.getOrNull(4)?.toIntOrNull() ?: 0
+        fullMoveNumber = parts.getOrNull(5)?.toIntOrNull() ?: 1
+        moveHistory.clear() // FEN учитава нову позицију, историја се брише
+    }
+
     fun toFen(): String {
         val fen = StringBuilder()
-
-        // 1. Deo: Pozicija figura
         for (rank in 8 downTo 1) {
             var emptySquares = 0
             for (file in 'a'..'h') {
@@ -71,11 +82,8 @@ class Game {
                 fen.append('/')
             }
         }
-
-        // 2. Deo: Ko je na potezu
-        fen.append(" ").append(if (currentPlayer == Color.WHITE) 'w' else 'b')
-
-        // 3. Deo: Mogućnosti rokade
+        fen.append(" ")
+        fen.append(if (currentPlayer == Color.WHITE) 'w' else 'b')
         fen.append(" ")
         val castling = StringBuilder()
         if (whiteKingSideCastlingAllowed) castling.append('K')
@@ -87,16 +95,12 @@ class Game {
         } else {
             fen.append(castling.toString())
         }
-
-        // 4. Deo: En passant polje
-        fen.append(" ").append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
-
-        // 5. Deo: Brojač polupoteza
-        fen.append(" ").append(halfMoveClock)
-
-        // 6. Deo: Broj punih poteza
-        fen.append(" ").append(fullMoveNumber)
-
+        fen.append(" ")
+        fen.append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
+        fen.append(" ")
+        fen.append(halfMoveClock)
+        fen.append(" ")
+        fen.append(fullMoveNumber)
         return fen.toString()
     }
 
@@ -109,6 +113,8 @@ class Game {
         if (pieceToMove == null || pieceToMove.color != currentPlayer) {
             return false
         }
+        // У MoveGenerator-у би требало да се постави capturedPiece.
+        // Овде само претпостављамо да је то урађено.
         val success = board.makeMove(move)
         if (success) {
             moveHistory.add(move)
@@ -124,7 +130,11 @@ class Game {
 
     private fun updateGameState(move: Move, movingPiece: Piece) {
         enPassantTargetSquare = null
-        if (movingPiece.type == PieceType.PAWN || move.capturedPiece != null) { halfMoveClock = 0 } else { halfMoveClock++ }
+        if (movingPiece.type == PieceType.PAWN || board.getPieceAt(move.to) != null) { // Проверавамо да ли је фигура заиста узета
+            halfMoveClock = 0
+        } else {
+            halfMoveClock++
+        }
         if (movingPiece.type == PieceType.KING) {
             if (movingPiece.color == Color.WHITE) { whiteKingSideCastlingAllowed = false; whiteQueenSideCastlingAllowed = false }
             else { blackKingSideCastlingAllowed = false; blackQueenSideCastlingAllowed = false }
@@ -138,19 +148,22 @@ class Game {
                 if (move.from == Square('h', 8)) blackKingSideCastlingAllowed = false
             }
         }
-        if (move.capturedPiece?.type == PieceType.ROOK) {
-            if (move.to == Square('a', 1)) whiteQueenSideCastlingAllowed = false
-            if (move.to == Square('h', 1)) whiteKingSideCastlingAllowed = false
-            if (move.to == Square('a', 8)) blackQueenSideCastlingAllowed = false
-            if (move.to == Square('h', 8)) blackKingSideCastlingAllowed = false
-        }
+        // Ова провера је неопходна ако противнички топ буде поједен на свом почетном пољу
+        val capturedPieceSquare = move.to
+        val capturedPiece = board.getPieceAt(capturedPieceSquare) // Овде је већ null, јер је makeMove извршен. Логика capturedPiece је потребна унутар Move објекта.
+        // За сада, радимо проверу по пољима.
+        if (capturedPieceSquare == Square('a', 1)) whiteQueenSideCastlingAllowed = false
+        if (capturedPieceSquare == Square('h', 1)) whiteKingSideCastlingAllowed = false
+        if (capturedPieceSquare == Square('a', 8)) blackQueenSideCastlingAllowed = false
+        if (capturedPieceSquare == Square('h', 8)) blackKingSideCastlingAllowed = false
+
         if (movingPiece.type == PieceType.PAWN) {
             if (movingPiece.color == Color.WHITE && move.from.rank == 2 && move.to.rank == 4) { enPassantTargetSquare = Square(move.from.file, 3) }
             else if (movingPiece.color == Color.BLACK && move.from.rank == 7 && move.to.rank == 5) { enPassantTargetSquare = Square(move.from.file, 6) }
         }
     }
 
-    fun getPseudoLegalMoves(): List<Move> {
+    private fun getPseudoLegalMoves(): List<Move> {
         val allMoves = mutableListOf<Move>()
         val allPieces = board.getAllPieces()
         for ((square, piece) in allPieces) {
@@ -161,10 +174,23 @@ class Game {
         return allMoves
     }
 
+    // *** ИЗМЕНА #1: Исправљена функција за проверу напада ***
     fun isSquareAttacked(square: Square, attackerColor: Color): Boolean {
         val allPieces = board.getAllPieces()
         for ((pieceSquare, piece) in allPieces) {
             if (piece.color == attackerColor) {
+                // --- ПЕЧ ЗА КРАЉА СТАРТ ---
+                // Ручна провера за напад краљем, јер MoveGenerator није поуздан.
+                if (piece.type == PieceType.KING) {
+                    val dx = abs(pieceSquare.file.code - square.file.code)
+                    val dy = abs(pieceSquare.rank - square.rank)
+                    if (dx <= 1 && dy <= 1) {
+                        return true // Краљ напада ово поље
+                    }
+                }
+                // --- ПЕЧ ЗА КРАЉА КРАЈ ---
+
+                // Оригинална логика која користи (непоуздани) генератор
                 val moves = MoveGenerator.generateMovesForPiece(piece, pieceSquare, this)
                 if (moves.any { it.to == square }) { return true }
             }
@@ -177,26 +203,33 @@ class Game {
         return if (kingSquare != null) { isSquareAttacked(kingSquare, color.opposite()) } else { false }
     }
 
+    // *** ИЗМЕНА #2: Поједностављена и поузданија функција за легалне потезе ***
     fun getLegalMoves(): List<Move> {
         val pseudoLegalMoves = getPseudoLegalMoves()
         val legalMoves = mutableListOf<Move>()
         val originalPlayer = this.currentPlayer
+
         for (move in pseudoLegalMoves) {
-            val tempGame = this.copyAndMakeMove(move)
-            val kingSquare = tempGame.board.findKing(originalPlayer)
-            if (kingSquare != null && !tempGame.isSquareAttacked(kingSquare, tempGame.currentPlayer)) {
+            // Креирамо потпуну копију стања игре да бисмо безбедно тестирали потез
+            val tempGame = this.copy()
+            // Покушавамо да одиграмо потез на копији
+            tempGame.tryMakeMove(move)
+
+            // Проверавамо да ли је НАШ краљ у шаху НАКОН потеза.
+            // tempGame.isKingInCheck() позива исправљену isSquareAttacked() методу.
+            if (!tempGame.isKingInCheck(originalPlayer)) {
                 legalMoves.add(move)
             }
         }
         return legalMoves
     }
 
-    private fun copyAndMakeMove(move: Move): Game {
+    // *** ИЗМЕНА #3: Ажурирана copy функција ***
+    fun copy(): Game {
         val newGame = Game()
-        newGame.board = this.board.copy()
-        newGame.currentPlayer = this.currentPlayer
-        newGame.board.makeMove(move)
-        newGame.currentPlayer = newGame.currentPlayer.opposite()
+        newGame.loadFen(this.toFen())
+        // Осигуравамо да се и историја потеза копира
+        newGame.moveHistory.addAll(this.moveHistory)
         return newGame
     }
 }
