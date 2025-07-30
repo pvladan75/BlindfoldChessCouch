@@ -6,8 +6,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.program.blindfoldchesscouch.ui.screens.MainMenuScreen
 import com.program.blindfoldchesscouch.ui.screens.Module1Screen
-import com.program.blindfoldchesscouch.ui.screens.Module2Screen // <-- НОВИ IMPORT
+import com.program.blindfoldchesscouch.ui.screens.Module2Screen
 import com.program.blindfoldchesscouch.ui.screens.Module3Screen
+import com.program.blindfoldchesscouch.ui.screens.Module4Screen // <-- НОВИ IMPORT
 import com.program.blindfoldchesscouch.ui.screens.ModuleScreen
 import com.program.blindfoldchesscouch.viewmodel.GameViewModel
 
@@ -49,8 +50,9 @@ fun AppNavigation(gameViewModel: GameViewModel) {
                 // Koristimo `when` da odlučimo koji ekran da prikažemo za koju rutu
                 when (module.route) {
                     "module_1" -> Module1Screen()
-                    "module_2" -> Module2Screen() // <-- ИЗМЕНА: Додата рута за Модул 2
+                    "module_2" -> Module2Screen()
                     "module_3" -> Module3Screen()
+                    "module_4" -> Module4Screen() // <-- НОВА ЛИНИЈА
 
                     // Svi ostali moduli će koristiti generički ekran
                     else -> ModuleScreen(
