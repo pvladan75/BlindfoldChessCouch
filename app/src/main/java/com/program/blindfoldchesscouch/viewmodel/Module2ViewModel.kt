@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.program.blindfoldchesscouch.model.*
 import com.program.blindfoldchesscouch.tts.TtsHelper
 import com.program.blindfoldchesscouch.util.Module2PuzzleLoader
+import com.program.nativelib.NativeLib // <-- NOVI IMPORT
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Stanje sesije za Modul 2
 enum class Module2SessionState { SETUP, IN_PROGRESS }
@@ -140,23 +143,49 @@ class Module2ViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * AŽURIRANA VERZIJA: Ova funkcija sada poziva pravi C++ engine!
+     */
     private fun playBlacksResponse() {
         viewModelScope.launch {
-            delay(1000)
             val currentState = _uiState.value
-            val blackLegalMoves = currentState.game.getLegalMoves()
-            if (blackLegalMoves.isNotEmpty()) {
-                val blackMove = blackLegalMoves.random()
-                currentState.game.tryMakeMove(blackMove)
-                ttsHelper.speak("${blackMove.from.toAlgebraicNotation()} ${blackMove.to.toAlgebraicNotation()}")
-                if (currentState.game.getLegalMoves().isEmpty()) {
-                    stopTimer()
-                    val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Crni je pobedio." else "Pat! Nerešeno."
-                    ttsHelper.speak(message)
-                    _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove, arePiecesVisible = true) }
+            _uiState.update { it.copy(statusMessage = "Crni razmišlja...") }
+
+            val fen = currentState.game.toFen()
+
+            // Pozivamo native C++ funkciju u pozadinskoj niti da ne blokiramo UI
+            val bestMoveString = withContext(Dispatchers.IO) {
+                NativeLib.getBestMove(fen, 1000) // Dajemo mu 1 sekundu da razmišlja
+            }
+
+            if (bestMoveString != "error" && bestMoveString.length >= 4) {
+                val fromSquare = Square.fromAlgebraicNotation(bestMoveString.substring(0, 2))
+                val toSquare = Square.fromAlgebraicNotation(bestMoveString.substring(2, 4))
+
+                if (fromSquare != null && toSquare != null) {
+                    // Pronalazimo potez u listi legalnih poteza da budemo sigurni
+                    val blackMove = currentState.game.getLegalMoves().find { it.from == fromSquare && it.to == toSquare }
+
+                    if (blackMove != null) {
+                        currentState.game.tryMakeMove(blackMove)
+                        ttsHelper.speak("${blackMove.from.toAlgebraicNotation()} ${blackMove.to.toAlgebraicNotation()}")
+
+                        if (currentState.game.getLegalMoves().isEmpty()) {
+                            stopTimer()
+                            val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Crni je pobedio." else "Pat! Nerešeno."
+                            ttsHelper.speak(message)
+                            _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove, arePiecesVisible = true) }
+                        } else {
+                            _uiState.update { it.copy(statusMessage = "Beli je na potezu.", lastMove = blackMove) }
+                        }
+                    } else {
+                        _uiState.update { it.copy(statusMessage = "Engine je vratio nelegalan potez. Beli je na potezu.") }
+                    }
                 } else {
-                    _uiState.update { it.copy(statusMessage = "Beli je na potezu.", lastMove = blackMove) }
+                    _uiState.update { it.copy(statusMessage = "Greška pri parsiranju poteza. Beli je na potezu.") }
                 }
+            } else {
+                _uiState.update { it.copy(statusMessage = "Greška u engine-u. Beli je na potezu.") }
             }
         }
     }

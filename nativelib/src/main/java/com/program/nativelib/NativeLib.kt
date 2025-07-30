@@ -1,17 +1,13 @@
 package com.program.nativelib
 
-class NativeLib {
+object NativeLib {
+
+    init {
+        System.loadLibrary("nativelib")
+    }
 
     /**
-     * A native method that is implemented by the 'nativelib' native library,
-     * which is packaged with this application.
+     * Prima FEN poziciju i vreme za razmišljanje, i vraća najbolji potez.
      */
-    external fun stringFromJNI(): String
-
-    companion object {
-        // Used to load the 'nativelib' library on application startup.
-        init {
-            System.loadLibrary("nativelib")
-        }
-    }
+    external fun getBestMove(fen: String, searchTimeMillis: Int): String
 }
