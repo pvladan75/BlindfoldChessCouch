@@ -42,15 +42,9 @@ class Game {
         halfMoveClock = 0
         fullMoveNumber = 1
     }
+
     /**
      * Generiše Forsyth-Edwards Notation (FEN) string za trenutnu poziciju u partiji.
-     * FEN string se sastoji od 6 delova:
-     * 1. Pozicija figura na tabli.
-     * 2. Ko je na potezu ('w' za bele, 'b' za crne).
-     * 3. Mogućnosti rokade ('K' 'Q' 'k' 'q' ili '-').
-     * 4. Moguće "en passant" polje (npr. "e3" ili "-").
-     * 5. Brojač polupoteza za pravilo 50 poteza.
-     * 6. Broj punih poteza.
      */
     fun toFen(): String {
         val fen = StringBuilder()
@@ -79,8 +73,7 @@ class Game {
         }
 
         // 2. Deo: Ko je na potezu
-        fen.append(" ")
-        fen.append(if (currentPlayer == Color.WHITE) 'w' else 'b')
+        fen.append(" ").append(if (currentPlayer == Color.WHITE) 'w' else 'b')
 
         // 3. Deo: Mogućnosti rokade
         fen.append(" ")
@@ -96,16 +89,13 @@ class Game {
         }
 
         // 4. Deo: En passant polje
-        fen.append(" ")
-        fen.append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
+        fen.append(" ").append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
 
         // 5. Deo: Brojač polupoteza
-        fen.append(" ")
-        fen.append(halfMoveClock)
+        fen.append(" ").append(halfMoveClock)
 
         // 6. Deo: Broj punih poteza
-        fen.append(" ")
-        fen.append(fullMoveNumber)
+        fen.append(" ").append(fullMoveNumber)
 
         return fen.toString()
     }
@@ -113,57 +103,6 @@ class Game {
     fun getCurrentBoard(): Board {
         return board
     }
-
-    /**
-     * NOVO: Kreira FEN string na osnovu trenutnog stanja partije.
-     */
-    fun toFen(): String {
-        val fenBuilder = StringBuilder()
-
-        // 1. Deo: Pozicija figura
-        for (rank in 8 downTo 1) {
-            var emptySquares = 0
-            for (file in 'a'..'h') {
-                val piece = board.getPieceAt(Square(file, rank))
-                if (piece == null) {
-                    emptySquares++
-                } else {
-                    if (emptySquares > 0) {
-                        fenBuilder.append(emptySquares)
-                        emptySquares = 0
-                    }
-                    fenBuilder.append(piece.toFenChar())
-                }
-            }
-            if (emptySquares > 0) {
-                fenBuilder.append(emptySquares)
-            }
-            if (rank > 1) {
-                fenBuilder.append('/')
-            }
-        }
-
-        // 2. Deo: Igrač na potezu
-        fenBuilder.append(' ').append(if (currentPlayer == Color.WHITE) 'w' else 'b')
-
-        // 3. Deo: Prava na rokadu
-        val castlingRights = StringBuilder()
-        if (whiteKingSideCastlingAllowed) castlingRights.append('K')
-        if (whiteQueenSideCastlingAllowed) castlingRights.append('Q')
-        if (blackKingSideCastlingAllowed) castlingRights.append('k')
-        if (blackQueenSideCastlingAllowed) castlingRights.append('q')
-        fenBuilder.append(' ').append(if (castlingRights.isNotEmpty()) castlingRights.toString() else "-")
-
-        // 4. Deo: En passant polje
-        fenBuilder.append(' ').append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
-
-        // 5. i 6. Deo: Brojači poteza
-        fenBuilder.append(' ').append(halfMoveClock)
-        fenBuilder.append(' ').append(fullMoveNumber)
-
-        return fenBuilder.toString()
-    }
-
 
     fun tryMakeMove(move: Move): Boolean {
         val pieceToMove = board.getPieceAt(move.from)
@@ -212,8 +151,14 @@ class Game {
     }
 
     fun getPseudoLegalMoves(): List<Move> {
-        val allMoves = mutableListOf<Move>(); val allPieces = board.getAllPieces()
-        for ((square, piece) in allPieces) { if (piece.color == currentPlayer) { allMoves.addAll(MoveGenerator.generateMovesForPiece(piece, square, this)) } }; return allMoves
+        val allMoves = mutableListOf<Move>()
+        val allPieces = board.getAllPieces()
+        for ((square, piece) in allPieces) {
+            if (piece.color == currentPlayer) {
+                allMoves.addAll(MoveGenerator.generateMovesForPiece(piece, square, this))
+            }
+        }
+        return allMoves
     }
 
     fun isSquareAttacked(square: Square, attackerColor: Color): Boolean {
@@ -247,8 +192,12 @@ class Game {
     }
 
     private fun copyAndMakeMove(move: Move): Game {
-        val newGame = Game(); newGame.board = this.board.copy(); newGame.currentPlayer = this.currentPlayer
-        newGame.board.makeMove(move); newGame.currentPlayer = newGame.currentPlayer.opposite(); return newGame
+        val newGame = Game()
+        newGame.board = this.board.copy()
+        newGame.currentPlayer = this.currentPlayer
+        newGame.board.makeMove(move)
+        newGame.currentPlayer = newGame.currentPlayer.opposite()
+        return newGame
     }
 }
 

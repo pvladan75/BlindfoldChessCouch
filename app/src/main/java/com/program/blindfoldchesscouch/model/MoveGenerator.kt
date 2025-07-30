@@ -1,37 +1,27 @@
 // model/MoveGenerator.kt
 package com.program.blindfoldchesscouch.model
 
-/**
- * Generiše sve pseudo-legalne poteze za datu poziciju.
- */
 object MoveGenerator {
 
-    /**
-     * Generiše poteze za jednu figuru na datoj poziciji.
-     */
     fun generateMovesForPiece(piece: Piece, from: Square, game: Game): List<Move> {
-        val board = game.getCurrentBoard()
+        val board = game.getCurrentBoard() // Ispravan poziv
         return when (piece.type) {
             PieceType.PAWN -> generatePawnMoves(piece, from, game)
             PieceType.KNIGHT -> generateKnightMoves(piece, from, board)
             PieceType.BISHOP -> generateSlidingMoves(piece, from, board, BishopDirections)
             PieceType.ROOK -> generateSlidingMoves(piece, from, board, RookDirections)
             PieceType.QUEEN -> generateSlidingMoves(piece, from, board, QueenDirections)
-            PieceType.KING -> generateKingMoves(piece, from, game) // NOVO: Prosleđujemo 'game'
+            PieceType.KING -> generateKingMoves(piece, from, game)
         }
     }
 
-    private val RookDirections = listOf(
-        Pair(1, 0), Pair(-1, 0), Pair(0, 1), Pair(0, -1)
-    )
-    private val BishopDirections = listOf(
-        Pair(1, 1), Pair(1, -1), Pair(-1, 1), Pair(-1, -1)
-    )
+    private val RookDirections = listOf(Pair(1, 0), Pair(-1, 0), Pair(0, 1), Pair(0, -1))
+    private val BishopDirections = listOf(Pair(1, 1), Pair(1, -1), Pair(-1, 1), Pair(-1, -1))
     private val QueenDirections = RookDirections + BishopDirections
 
     private fun generatePawnMoves(piece: Piece, from: Square, game: Game): List<Move> {
         val moves = mutableListOf<Move>()
-        val board = game.getCurrentBoard()
+        val board = game.getCurrentBoard() // Ispravan poziv
         val startFileIndex = from.file - 'a'
 
         val direction = if (piece.color == Color.WHITE) 1 else -1
@@ -67,18 +57,14 @@ object MoveGenerator {
 
         val captureRank = from.rank + direction
         if (captureRank in 1..8) {
-            if (startFileIndex > 0) {
-                val toSquare = Square(from.file - 1, captureRank)
-                val pieceAtTarget = board.getPieceAt(toSquare)
-                if (pieceAtTarget != null && pieceAtTarget.color != piece.color) {
-                    addPawnMove(toSquare, capturedPiece = pieceAtTarget)
-                }
-            }
-            if (startFileIndex < 7) {
-                val toSquare = Square(from.file + 1, captureRank)
-                val pieceAtTarget = board.getPieceAt(toSquare)
-                if (pieceAtTarget != null && pieceAtTarget.color != piece.color) {
-                    addPawnMove(toSquare, capturedPiece = pieceAtTarget)
+            for (fileOffset in listOf(-1, 1)) {
+                val targetFile = from.file + fileOffset
+                if (targetFile in 'a'..'h') {
+                    val toSquare = Square(targetFile, captureRank)
+                    val pieceAtTarget = board.getPieceAt(toSquare)
+                    if (pieceAtTarget != null && pieceAtTarget.color != piece.color) {
+                        addPawnMove(toSquare, capturedPiece = pieceAtTarget)
+                    }
                 }
             }
         }
@@ -96,13 +82,9 @@ object MoveGenerator {
         return moves
     }
 
-    /**
-     * Funkcija za generisanje poteza za kralja.
-     * NOVO: Prima 'game' i implementira rokadu.
-     */
     private fun generateKingMoves(piece: Piece, from: Square, game: Game): List<Move> {
         val moves = mutableListOf<Move>()
-        val board = game.getCurrentBoard()
+        val board = game.getCurrentBoard() // Ispravan poziv
         val startFileIndex = from.file - 'a'
         val startRankIndex = from.rank - 1
 
@@ -120,20 +102,14 @@ object MoveGenerator {
             }
         }
 
-        // NOVO: Logika za rokadu
         val rank = if (piece.color == Color.WHITE) 1 else 8
-        // Proveravamo da li je kralj uopšte na početnom polju
         if (from == Square('e', rank)) {
-            // 1. Kraljeva (kratka) rokada
             if ((piece.color == Color.WHITE && game.whiteKingSideCastlingAllowed) || (piece.color == Color.BLACK && game.blackKingSideCastlingAllowed)) {
-                // Proveravamo da li su polja f i g prazna
                 if (board.getPieceAt(Square('f', rank)) == null && board.getPieceAt(Square('g', rank)) == null) {
                     moves.add(Move(from, Square('g', rank), piece, moveType = MoveType.CASTLING_KING_SIDE))
                 }
             }
-            // 2. Damina (duga) rokada
             if ((piece.color == Color.WHITE && game.whiteQueenSideCastlingAllowed) || (piece.color == Color.BLACK && game.blackQueenSideCastlingAllowed)) {
-                // Proveravamo da li su polja b, c i d prazna
                 if (board.getPieceAt(Square('b', rank)) == null && board.getPieceAt(Square('c', rank)) == null && board.getPieceAt(Square('d', rank)) == null) {
                     moves.add(Move(from, Square('c', rank), piece, moveType = MoveType.CASTLING_QUEEN_SIDE))
                 }
@@ -144,6 +120,7 @@ object MoveGenerator {
 
     private fun generateKnightMoves(piece: Piece, from: Square, board: Board): List<Move> {
         val moves = mutableListOf<Move>()
+        // ... (ostatak funkcije je nepromenjen)
         val startFileIndex = from.file - 'a'
         val startRankIndex = from.rank - 1
 
@@ -170,6 +147,7 @@ object MoveGenerator {
 
     private fun generateSlidingMoves(piece: Piece, from: Square, board: Board, directions: List<Pair<Int, Int>>): List<Move> {
         val moves = mutableListOf<Move>()
+        // ... (ostatak funkcije je nepromenjen)
         val startFileIndex = from.file - 'a'
         val startRankIndex = from.rank - 1
 

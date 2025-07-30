@@ -52,7 +52,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.gson)
     implementation(libs.accompanist.permissions)
-    implementation(project(":nativelib"))
     implementation(libs.androidx.material.icons.extended.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
