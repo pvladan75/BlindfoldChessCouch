@@ -1,7 +1,6 @@
 // in engine/SunfishEngine.kt
 package com.program.blindfoldchesscouch.engine
 
-import android.util.Log
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -23,9 +22,14 @@ private const val N = -10
 private const val E = 1
 private const val S = 10
 private const val W = -1
-private const val TAG = "SunfishDebug"
+
+private val pieceOrderValues = mapOf('P' to 1, 'N' to 2, 'B' to 3, 'R' to 4, 'Q' to 5, 'K' to 6)
+// *** НОВО: Пуне вредности фигура потребне за SEE ***
+private val seePieceValues = mapOf('P' to 100, 'N' to 280, 'B' to 320, 'R' to 479, 'Q' to 929, 'K' to 60000)
 
 object SunfishEngineConfig {
+    const val MOBILITY_WEIGHT = 2
+
     private val piece = mapOf(
         'P' to 100, 'N' to 280, 'B' to 320, 'R' to 479, 'Q' to 929, 'K' to 60000
     )
@@ -75,6 +79,28 @@ class SunfishPosition(
     var ep: Int,
     var kp: Int
 ) {
+    fun calculateFullScore(): Int {
+        var pstScore = 0
+        for (i in board.indices) {
+            val p = board[i]
+            if (p.isUpperCase()) {
+                pstScore += SunfishEngineConfig.pst[p]?.get(i) ?: 0
+            } else if (p.isLowerCase()) {
+                pstScore -= SunfishEngineConfig.pst[p.uppercaseChar()]?.get(119 - i) ?: 0
+            }
+        }
+
+        val whiteMoves = this.genMoves().size
+        this.rotate()
+        val blackMoves = this.genMoves().size
+        this.rotate()
+
+        val mobilityScore = (whiteMoves - blackMoves) * SunfishEngineConfig.MOBILITY_WEIGHT
+
+        return pstScore + mobilityScore
+    }
+
+    // Остале функције...
     fun genMoves(): List<SunfishMove> {
         val moves = mutableListOf<SunfishMove>()
         for (i in board.indices) {
@@ -108,6 +134,38 @@ class SunfishPosition(
         }
         return moves
     }
+
+    fun genCaptures(): List<SunfishMove> {
+        val moves = mutableListOf<SunfishMove>()
+        for (i in board.indices) {
+            val p = board[i]
+            if (!p.isUpperCase()) continue
+
+            for (d in SunfishEngineConfig.directions.getValue(p)) {
+                var j = i + d
+                while (j in board.indices && !board[j].isWhitespace()) {
+                    val q = board[j]
+                    if (q.isUpperCase()) break
+
+                    if (p == 'P') {
+                        if (j in SunfishEngineConfig.A8..SunfishEngineConfig.H8) {
+                            "NBRQ".forEach { prom -> moves.add(SunfishMove(i, j, prom)) }
+                        }
+                        if (d in listOf(N + W, N + E) && (q.isLowerCase() || j == ep)) {
+                            moves.add(SunfishMove(i, j))
+                        }
+                    } else if (q.isLowerCase()) {
+                        moves.add(SunfishMove(i, j))
+                    }
+
+                    if (p in "PNK" || q.isLowerCase()) break
+                    j += d
+                }
+            }
+        }
+        return moves
+    }
+
 
     fun isKingAttacked(): Boolean {
         val kingPos = board.indexOf('K')
@@ -221,61 +279,193 @@ class SunfishPosition(
     }
 
     private fun Char.swapCase(): Char = if (isUpperCase()) lowercaseChar() else uppercaseChar()
+
+    // *** НОВО: Помоћна функција за проналажење нападача на поље ***
+    private fun getAttackers(targetSquare: Int, attackerColorIsWhite: Boolean): List<Pair<Int, Char>> {
+        val attackers = mutableListOf<Pair<Int, Char>>()
+        for (i in board.indices) {
+            val p = board[i]
+            val pieceIsCorrectColor = if (attackerColorIsWhite) p.isUpperCase() else p.isLowerCase()
+            if (!pieceIsCorrectColor || p.isWhitespace() || p == '.') continue
+
+            val tempP = if (attackerColorIsWhite) p else p.uppercaseChar()
+            for (d in SunfishEngineConfig.directions.getValue(tempP)) {
+                val actualDir = if (attackerColorIsWhite) d else -d
+                var j = i + actualDir
+                while (j in board.indices && !board[j].isWhitespace()) {
+                    if (j == targetSquare) {
+                        // Провера за пешаке - они нападају само дијагонално
+                        if (tempP == 'P') {
+                            if (actualDir == N+W || actualDir == N+E || actualDir == -S-W || actualDir == -S-E) {
+                                attackers.add(Pair(i, p))
+                            }
+                        } else {
+                            attackers.add(Pair(i, p))
+                        }
+                    }
+                    val q = board[j]
+                    if (q != '.' || tempP in "PNK") break
+                    j += actualDir
+                }
+            }
+        }
+        return attackers.sortedBy { pieceOrderValues[it.second.uppercaseChar()] }
+    }
+
+    // *** НОВО: Главна SEE функција ***
+    fun see(move: SunfishMove): Int {
+        val targetSquare = move.j
+        val attacker = board[move.i]
+        val victim = board[move.j]
+
+        if (!victim.isLowerCase()) return 0
+
+        var gain = IntArray(32)
+        var a = 0
+
+        var attackers = getAttackers(targetSquare, true) + getAttackers(targetSquare, false)
+        var colorToMove = true // true for white, false for black
+
+        gain[a] = seePieceValues[victim.uppercaseChar()]!!
+
+        var currentBoard = this.board.clone()
+        currentBoard[targetSquare] = attacker
+        currentBoard[move.i] = '.'
+
+        while (true) {
+            val ourAttackers = attackers.filter { (if (colorToMove) it.second.isUpperCase() else it.second.isLowerCase()) && currentBoard[it.first] != '.' }
+            if (ourAttackers.isEmpty()) break
+
+            val leastValuableAttacker = ourAttackers.first()
+
+            a++
+            gain[a] = seePieceValues[leastValuableAttacker.second.uppercaseChar()]!! - gain[a-1]
+
+            currentBoard[targetSquare] = leastValuableAttacker.second
+            currentBoard[leastValuableAttacker.first] = '.'
+
+            colorToMove = !colorToMove
+        }
+
+        // Negamax-like evaluation of the capture sequence
+        for (i in a - 1 downTo 0) {
+            gain[i] = -max(-gain[i], gain[i+1])
+        }
+
+        return gain[0]
+    }
 }
 
 private data class TTEntry(val lower: Int, val upper: Int)
+private data class TTKey(val hash: Long, val depth: Int)
 
 class SunfishSearcher(private var pos: SunfishPosition) {
     private var nodes = 0
-    private val ttScore = mutableMapOf<Long, TTEntry>()
+    private val ttScore = mutableMapOf<TTKey, TTEntry>()
     private val ttMove = mutableMapOf<Long, SunfishMove>()
-    private var isBlackToMoveForLog: Boolean = false
+
+    // *** ИЗМЕНА: scoreMove сада користи SEE ***
+    private fun scoreMove(move: SunfishMove): Int {
+        val capturedPiece = pos.board[move.j]
+        if (capturedPiece.isLowerCase()) {
+            // Покрећемо SEE да добијемо праву вредност размене
+            val seeScore = pos.see(move)
+            if (seeScore > 0) {
+                // Профитабилна узимања имају највиши приоритет
+                return 20000 + seeScore
+            } else {
+                // Непрофитабилна узимања имају низак приоритет
+                return -10000 + seeScore
+            }
+        }
+        return 0 // "Тихи" потези
+    }
+
+    private fun quiescenceBound(gamma: Int): Int {
+        nodes++
+
+        var best = pos.score
+        if (best >= gamma) {
+            return best
+        }
+
+        val legalCaptures = mutableListOf<SunfishMove>()
+        val pseudoCaptures = pos.genCaptures()
+
+        for(move in pseudoCaptures) {
+            val undo = pos.makeMove(move)
+            if (!pos.isKingAttacked()) {
+                legalCaptures.add(move)
+            }
+            pos.unmakeMove(move, undo)
+        }
+
+        for (move in legalCaptures.sortedByDescending { scoreMove(it) }) {
+            val undo = pos.makeMove(move)
+            pos.rotate()
+            val score = -quiescenceBound(1 - gamma)
+            pos.rotate()
+            pos.unmakeMove(move, undo)
+
+            if (score > best) {
+                best = score
+                if (best >= gamma) {
+                    break
+                }
+            }
+        }
+        return best
+    }
+
 
     private fun bound(gamma: Int, depth: Int): Int {
         nodes++
         val d = max(depth, 0)
 
+        if (d == 0) {
+            return quiescenceBound(gamma)
+        }
+
         val posHash = pos.board.contentHashCode().toLong()
-        val entry = ttScore.getOrDefault(posHash, TTEntry(-SunfishEngineConfig.MATE_UPPER, SunfishEngineConfig.MATE_UPPER))
+        val key = TTKey(posHash, d)
+        val entry = ttScore.getOrDefault(key, TTEntry(-SunfishEngineConfig.MATE_UPPER, SunfishEngineConfig.MATE_UPPER))
         if (entry.lower >= gamma) return entry.lower
         if (entry.upper < gamma) return entry.upper
 
-        if (d == 0) return pos.score
+        if (d >= 3 && !pos.isKingAttacked() && pos.score >= gamma) {
+            pos.rotate()
+            val nullMoveScore = -bound(1 - gamma, d - 3)
+            pos.rotate()
+            if (nullMoveScore >= gamma) {
+                return gamma
+            }
+        }
 
         var best = -SunfishEngineConfig.MATE_UPPER
         var bestMove: SunfishMove? = null
 
         val pseudoLegalMoves = pos.genMoves()
 
-        // Logovanje pseudo-legalnih poteza - ово је корисно за дебаговање
-        // Log.d(TAG, "Pseudo-legalni potezi: ${pseudoLegalMoves.joinToString { render(it.i) + render(it.j) }}")
-
-        // *** ИЗМЕНА ЈЕ ОВДЕ ***
-        // Ово је исправна логика за филтрирање легалних потеза.
-        // Уклањамо `pos.rotate()` позиве из петље.
         val legalMoves = mutableListOf<SunfishMove>()
         for (move in pseudoLegalMoves) {
             val undo = pos.makeMove(move)
-            // Након нашег потеза, проверавамо да ли је НАШ краљ нападнут.
-            // Функција isKingAttacked() ради тачно то.
             if (!pos.isKingAttacked()) {
                 legalMoves.add(move)
             }
-            // Враћамо потез да бисмо могли да тестирамо следећи.
             pos.unmakeMove(move, undo)
         }
-
-        // Log.d(TAG, "Legalni potezi: ${legalMoves.joinToString { render(it.i) + render(it.j) }}")
-
 
         if (legalMoves.isEmpty()) {
             return if (pos.isKingAttacked()) -SunfishEngineConfig.MATE_LOWER else 0
         }
 
-        val sortedMoves = legalMoves.sortedByDescending { pos.value(it, pos.board[it.j]) }
         val killer = ttMove[posHash]
 
-        for (move in (listOfNotNull(killer) + sortedMoves).distinct()) {
+        val sortedMoves = legalMoves
+            .filter { it != killer }
+            .sortedByDescending { scoreMove(it) }
+
+        for (move in (listOfNotNull(killer) + sortedMoves)) {
             val undo = pos.makeMove(move)
             pos.rotate()
 
@@ -298,23 +488,28 @@ class SunfishSearcher(private var pos: SunfishPosition) {
             ttMove[posHash] = bestMove
         }
 
-        if (best >= gamma) ttScore[posHash] = TTEntry(best, entry.upper)
-        if (best < gamma) ttScore[posHash] = TTEntry(entry.lower, best)
+        if (best >= gamma) ttScore[key] = TTEntry(best, entry.upper)
+        if (best < gamma) ttScore[key] = TTEntry(entry.lower, best)
 
         return best
     }
 
     fun search(isBlack: Boolean, timeLimitSec: Double = 1.0): Pair<SunfishMove?, Int> {
-        this.isBlackToMoveForLog = isBlack
         nodes = 0
         ttScore.clear()
         ttMove.clear()
         var bestMove: SunfishMove? = null
         var score = 0
         val startTime = System.currentTimeMillis()
+
         for (depth in 1..100) {
-            score = bound(0, depth)
-            bestMove = ttMove[pos.board.contentHashCode().toLong()]
+            val currentScore = bound(0, depth)
+            val moveFound = ttMove[pos.board.contentHashCode().toLong()]
+            if(moveFound != null){
+                bestMove = moveFound
+            }
+            score = currentScore
+
             if ((System.currentTimeMillis() - startTime) / 1000.0 > timeLimitSec) {
                 break
             }
@@ -371,7 +566,8 @@ class SunfishEngine {
         pos.bc = Pair(castling.contains('q'), castling.contains('k'))
         pos.ep = if (enPassant != "-") parse(enPassant) else 0
         pos.kp = 0
-        pos.score = 0
+
+        pos.score = pos.calculateFullScore()
 
         isEngineCalculatingForBlack = (activeColor == "b")
 

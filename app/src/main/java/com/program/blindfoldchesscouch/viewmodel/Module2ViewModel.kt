@@ -166,7 +166,7 @@ class Module2ViewModel(application: Application) : AndroidViewModel(application)
 
             val bestMoveString = withContext(Dispatchers.Default) {
                 sunfishEngine.setPositionFromFen(fenForEngine)
-                sunfishEngine.searchBestMove(1.0)
+                sunfishEngine.searchBestMove(5.0)
             }
 
             Log.d("ViewModelDebug", "Engine je vratio potez: $bestMoveString")
