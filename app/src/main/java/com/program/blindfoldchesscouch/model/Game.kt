@@ -8,9 +8,8 @@ class Game {
 
     private val moveHistory: MutableList<Move> = mutableListOf()
 
-    // --- Јавна функција за приступ историји потеза ---
     fun getMoveHistory(): List<Move> {
-        return moveHistory.toList() // Vraćamo kopiju da se originalna lista ne može menjati spolja
+        return moveHistory.toList()
     }
 
     var whiteKingSideCastlingAllowed: Boolean = true
@@ -114,6 +113,57 @@ class Game {
     fun getCurrentBoard(): Board {
         return board
     }
+
+    /**
+     * NOVO: Kreira FEN string na osnovu trenutnog stanja partije.
+     */
+    fun toFen(): String {
+        val fenBuilder = StringBuilder()
+
+        // 1. Deo: Pozicija figura
+        for (rank in 8 downTo 1) {
+            var emptySquares = 0
+            for (file in 'a'..'h') {
+                val piece = board.getPieceAt(Square(file, rank))
+                if (piece == null) {
+                    emptySquares++
+                } else {
+                    if (emptySquares > 0) {
+                        fenBuilder.append(emptySquares)
+                        emptySquares = 0
+                    }
+                    fenBuilder.append(piece.toFenChar())
+                }
+            }
+            if (emptySquares > 0) {
+                fenBuilder.append(emptySquares)
+            }
+            if (rank > 1) {
+                fenBuilder.append('/')
+            }
+        }
+
+        // 2. Deo: Igrač na potezu
+        fenBuilder.append(' ').append(if (currentPlayer == Color.WHITE) 'w' else 'b')
+
+        // 3. Deo: Prava na rokadu
+        val castlingRights = StringBuilder()
+        if (whiteKingSideCastlingAllowed) castlingRights.append('K')
+        if (whiteQueenSideCastlingAllowed) castlingRights.append('Q')
+        if (blackKingSideCastlingAllowed) castlingRights.append('k')
+        if (blackQueenSideCastlingAllowed) castlingRights.append('q')
+        fenBuilder.append(' ').append(if (castlingRights.isNotEmpty()) castlingRights.toString() else "-")
+
+        // 4. Deo: En passant polje
+        fenBuilder.append(' ').append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
+
+        // 5. i 6. Deo: Brojači poteza
+        fenBuilder.append(' ').append(halfMoveClock)
+        fenBuilder.append(' ').append(fullMoveNumber)
+
+        return fenBuilder.toString()
+    }
+
 
     fun tryMakeMove(move: Move): Boolean {
         val pieceToMove = board.getPieceAt(move.from)
