@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.program.blindfoldchesscouch.engine.SunfishEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 // Stanje sesije za Modul 2
 enum class Module2SessionState { SETUP, IN_PROGRESS }
@@ -44,6 +47,9 @@ class Module2ViewModel(application: Application) : AndroidViewModel(application)
 
     private var timerJob: Job? = null
     private val ttsHelper = TtsHelper(application)
+
+    // Kreiramo instancu našeg novog, ličnog engine-a!
+    private val sunfishEngine = SunfishEngine()
 
     fun onDifficultySelected(difficulty: String) {
         _uiState.update { it.copy(selectedDifficulty = difficulty) }
@@ -140,23 +146,50 @@ class Module2ViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // --- AŽURIRANA playBlacksResponse FUNKCIJA ---
     private fun playBlacksResponse() {
         viewModelScope.launch {
-            delay(1000)
             val currentState = _uiState.value
-            val blackLegalMoves = currentState.game.getLegalMoves()
-            if (blackLegalMoves.isNotEmpty()) {
-                val blackMove = blackLegalMoves.random()
-                currentState.game.tryMakeMove(blackMove)
-                ttsHelper.speak("${blackMove.from.toAlgebraicNotation()} ${blackMove.to.toAlgebraicNotation()}")
-                if (currentState.game.getLegalMoves().isEmpty()) {
-                    stopTimer()
-                    val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Crni je pobedio." else "Pat! Nerešeno."
-                    ttsHelper.speak(message)
-                    _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove, arePiecesVisible = true) }
-                } else {
-                    _uiState.update { it.copy(statusMessage = "Beli je na potezu.", lastMove = blackMove) }
+            _uiState.update { it.copy(statusMessage = "Crni razmišlja...") }
+
+            // This line requires you to have a toFen() method in your Game class.
+            // Example: fun toFen(): String { /* implementation... */ }
+            val fen = currentState.game.toFen()
+
+            // Pozivamo naš novi Kotlin engine u pozadinskoj niti
+            // withContext and Dispatchers will now be resolved by the new imports.
+            val bestMoveString = withContext(Dispatchers.Default) {
+                sunfishEngine.setPositionFromFen(fen)
+                sunfishEngine.searchBestMove(1.0)
+            }
+
+            // The errors on 'length' and 'substring' will be resolved because the compiler
+            // now correctly infers bestMoveString as a String?.
+            if (bestMoveString != null && bestMoveString.length >= 4) {
+                val fromSquare = Square.fromAlgebraicNotation(bestMoveString.substring(0, 2))
+                val toSquare = Square.fromAlgebraicNotation(bestMoveString.substring(2, 4))
+
+                if (fromSquare != null && toSquare != null) {
+                    val blackMove = currentState.game.getLegalMoves().find { it.from == fromSquare && it.to == toSquare }
+
+                    if (blackMove != null) {
+                        currentState.game.tryMakeMove(blackMove)
+                        ttsHelper.speak("${blackMove.from.toAlgebraicNotation()} ${blackMove.to.toAlgebraicNotation()}")
+
+                        if (currentState.game.getLegalMoves().isEmpty()) {
+                            stopTimer()
+                            val message = if (currentState.game.isKingInCheck(currentState.game.currentPlayer)) "Mat! Crni je pobedio." else "Pat! Nerešeno."
+                            ttsHelper.speak(message)
+                            _uiState.update { it.copy(statusMessage = message, isGameOver = true, lastMove = blackMove, arePiecesVisible = true) }
+                        } else {
+                            _uiState.update { it.copy(statusMessage = "Beli je na potezu.", lastMove = blackMove) }
+                        }
+                    } else {
+                        _uiState.update { it.copy(statusMessage = "Engine je vratio nelegalan potez: $bestMoveString") }
+                    }
                 }
+            } else {
+                _uiState.update { it.copy(statusMessage = "Greška u Sunfish engine-u.") }
             }
         }
     }

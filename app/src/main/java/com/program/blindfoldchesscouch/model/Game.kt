@@ -43,6 +43,73 @@ class Game {
         halfMoveClock = 0
         fullMoveNumber = 1
     }
+    /**
+     * Generiše Forsyth-Edwards Notation (FEN) string za trenutnu poziciju u partiji.
+     * FEN string se sastoji od 6 delova:
+     * 1. Pozicija figura na tabli.
+     * 2. Ko je na potezu ('w' za bele, 'b' za crne).
+     * 3. Mogućnosti rokade ('K' 'Q' 'k' 'q' ili '-').
+     * 4. Moguće "en passant" polje (npr. "e3" ili "-").
+     * 5. Brojač polupoteza za pravilo 50 poteza.
+     * 6. Broj punih poteza.
+     */
+    fun toFen(): String {
+        val fen = StringBuilder()
+
+        // 1. Deo: Pozicija figura
+        for (rank in 8 downTo 1) {
+            var emptySquares = 0
+            for (file in 'a'..'h') {
+                val piece = board.getPieceAt(Square(file, rank))
+                if (piece == null) {
+                    emptySquares++
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares)
+                        emptySquares = 0
+                    }
+                    fen.append(piece.toFenChar())
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares)
+            }
+            if (rank > 1) {
+                fen.append('/')
+            }
+        }
+
+        // 2. Deo: Ko je na potezu
+        fen.append(" ")
+        fen.append(if (currentPlayer == Color.WHITE) 'w' else 'b')
+
+        // 3. Deo: Mogućnosti rokade
+        fen.append(" ")
+        val castling = StringBuilder()
+        if (whiteKingSideCastlingAllowed) castling.append('K')
+        if (whiteQueenSideCastlingAllowed) castling.append('Q')
+        if (blackKingSideCastlingAllowed) castling.append('k')
+        if (blackQueenSideCastlingAllowed) castling.append('q')
+        if (castling.isEmpty()) {
+            fen.append('-')
+        } else {
+            fen.append(castling.toString())
+        }
+
+        // 4. Deo: En passant polje
+        fen.append(" ")
+        fen.append(enPassantTargetSquare?.toAlgebraicNotation() ?: "-")
+
+        // 5. Deo: Brojač polupoteza
+        fen.append(" ")
+        fen.append(halfMoveClock)
+
+        // 6. Deo: Broj punih poteza
+        fen.append(" ")
+        fen.append(fullMoveNumber)
+
+        return fen.toString()
+    }
 
     fun getCurrentBoard(): Board {
         return board
