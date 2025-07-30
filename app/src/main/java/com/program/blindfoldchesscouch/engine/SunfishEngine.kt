@@ -1,19 +1,17 @@
 // in engine/SunfishEngine.kt
 package com.program.blindfoldchesscouch.engine
 
+import android.util.Log
 import kotlin.math.abs
 import kotlin.math.max
 
-// Definišemo smerove van klase radi pregледnosti
 private const val N = -10
 private const val E = 1
 private const val S = 10
 private const val W = -1
 
-/**
- * Овај објекат садржи све константе и почетна подешавања
- * за наш Sunfish енџин, преведене из Python кода.
- */
+private const val TAG = "SunfishDebug"
+
 object SunfishEngineConfig {
     private val piece = mapOf(
         'P' to 100, 'N' to 280, 'B' to 320, 'R' to 479, 'Q' to 929, 'K' to 60000
@@ -50,81 +48,212 @@ object SunfishEngineConfig {
     }
 
     const val A1 = 91; const val H1 = 98; const val A8 = 21; const val H8 = 28
-
-    val initialBoardString = "         \n         \n rnbqkbnr\n pppppppp\n ........\n ........\n ........\n ........\n PPPPPPPP\n RNBQKBNR\n         \n         \n".replace(" ", "")
+    val initialBoardString = "          \n          \n rnbqkbnr \n pppppppp \n ........\n ........\n ........\n ........\n PPPPPPPP \n RNBQKBNR \n          \n          \n".replace(" ", "")
 
     val directions = mapOf(
-        'P' to listOf(N, N + N, N + W, N + E), 'N' to listOf(N + N + E, E + N + E, E + S + E, S + S + E, S + S + W, W + S + W, W + N + W, N + N + W), 'B' to listOf(N + E, S + E, S + W, N + W), 'R' to listOf(N, E, S, W), 'Q' to listOf(N, E, S, W, N + E, S + E, S + W, N + W), 'K' to listOf(N, E, S, W, N + E, S + E, S + W, N + W)
+        'P' to listOf(N, N + N, N + W, N + E),
+        'N' to listOf(N + N + E, E + N + E, E + S + E, S + S + E, S + S + W, W + S + W, W + N + W, N + N + W),
+        'B' to listOf(N + E, S + E, S + W, N + W),
+        'R' to listOf(N, E, S, W),
+        'Q' to listOf(N, E, S, W, N + E, S + E, S + W, N + W),
+        'K' to listOf(N, E, S, W, N + E, S + E, S + W, N + W)
     )
 
-    // Konstante za pretragu
     val MATE_LOWER = piece.getValue('K') - 10 * piece.getValue('Q')
     val MATE_UPPER = piece.getValue('K') + 10 * piece.getValue('Q')
 }
 
-// --- Klase za logiku ---
-
 data class SunfishMove(val i: Int, val j: Int, val prom: Char? = null)
 
 data class SunfishPosition(
-    val board: CharArray, val score: Int, val wc: Pair<Boolean, Boolean>, val bc: Pair<Boolean, Boolean>, val ep: Int, val kp: Int
+    val board: CharArray,
+    val score: Int,
+    val wc: Pair<Boolean, Boolean>,
+    val bc: Pair<Boolean, Boolean>,
+    val ep: Int,
+    val kp: Int
 ) {
-    fun genMoves(): List<SunfishMove> { /* ... (nepromenjeno) ... */ return emptyList() }
-    fun rotate(): SunfishPosition { /* ... (nepromenjeno) ... */ return this }
-    fun move(move: SunfishMove): SunfishPosition { /* ... (nepromenjeno) ... */ return this }
-    fun value(move: SunfishMove): Int { /* ... (nepromenjeno) ... */ return 0 }
+    fun genMoves(): List<SunfishMove> {
+        val moves = mutableListOf<SunfishMove>()
+        board.forEachIndexed { i, p ->
+            if (!p.isUpperCase()) return@forEachIndexed
+            SunfishEngineConfig.directions[p]?.forEach { d ->
+                var j = i + d
+                while (true) {
+                    if (j !in board.indices) break
+                    val q = board[j]
+                    if (q.isWhitespace() || q.isUpperCase()) break
+                    if (p == 'P') {
+                        if (d in listOf(N, N + N) && q != '.') break
+                        if (d == N + N && (i < 81 || board[i + N] != '.')) break
+                        if (d in listOf(N + W, N + E) && q == '.' && j != ep) break
+                        if (j in SunfishEngineConfig.A8..SunfishEngineConfig.H8) {
+                            for (prom in "NBRQ") { moves.add(SunfishMove(i, j, prom)) }
+                            break
+                        }
+                    }
+                    moves.add(SunfishMove(i, j))
+                    if (p in "PNK" || q.isLowerCase()) break
+                    if (i == SunfishEngineConfig.A1 && j + E < board.size && board[j + E] == 'K' && wc.first) { moves.add(SunfishMove(j + E, j + W)) }
+                    if (i == SunfishEngineConfig.H1 && j + W < board.size && board[j + W] == 'K' && wc.second) { moves.add(SunfishMove(j + W, j + E)) }
+                    j += d
+                }
+            }
+        }
+        return moves
+    }
+
+    fun rotate(nullMove: Boolean = false): SunfishPosition {
+        val newBoard = board.reversedArray().map { it.swapCase() }.toCharArray()
+        val newEp = if (ep != 0 && !nullMove) 119 - ep else 0
+        val newKp = if (kp != 0 && !nullMove) 119 - kp else 0
+        return SunfishPosition(newBoard, -score, bc, wc, newEp, newKp)
+    }
+
+    // NOVO: Funkcija koja proverava da li je kralj napadnut
+    fun isKingAttacked(): Boolean {
+        val kingPos = board.indexOf('K')
+        if (kingPos == -1) return false
+
+        val opponentPos = this.rotate(true)
+        val ourKingInOpponentView = 119 - kingPos
+
+        val opponentMoves = opponentPos.genMoves()
+        for (move in opponentMoves) {
+            if (move.j == ourKingInOpponentView) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun move(move: SunfishMove): SunfishPosition {
+        val (i, j, prom) = move
+        val p = board[i]
+        val newBoard = board.clone()
+        var newWc = wc
+        var newBc = bc
+        var newEp = 0
+        var newKp = 0
+        newBoard[j] = p
+        newBoard[i] = '.'
+        if (i == SunfishEngineConfig.A1) newWc = Pair(false, newWc.second)
+        if (i == SunfishEngineConfig.H1) newWc = Pair(newWc.first, false)
+        if (j == SunfishEngineConfig.A8) newBc = Pair(newBc.first, false)
+        if (j == SunfishEngineConfig.H8) newBc = Pair(false, newBc.second)
+        when (p) {
+            'K' -> {
+                newWc = Pair(false, false)
+                if (abs(j - i) == 2) {
+                    newKp = (i + j) / 2
+                    val rookStart = if (j < i) SunfishEngineConfig.A1 else SunfishEngineConfig.H1
+                    newBoard[rookStart] = '.'
+                    newBoard[newKp] = 'R'
+                }
+            }
+            'P' -> {
+                if (j in SunfishEngineConfig.A8..SunfishEngineConfig.H8) { newBoard[j] = prom!! }
+                if (j - i == 2 * N) { newEp = i + N }
+                if (j == ep) { newBoard[j + S] = '.' }
+            }
+        }
+        val newPos = SunfishPosition(newBoard, score + value(move), newWc, newBc, newEp, newKp)
+        return newPos.rotate()
+    }
+
+    fun value(move: SunfishMove): Int {
+        val (i, j, prom) = move
+        val p = board[i]
+        val q = board[j]
+        var score = (SunfishEngineConfig.pst[p]?.get(j) ?: 0) - (SunfishEngineConfig.pst[p]?.get(i) ?: 0)
+        if (q.isLowerCase()) {
+            score += SunfishEngineConfig.pst[q.uppercaseChar()]?.get(119 - j) ?: 0
+        }
+        if (p == 'K' && abs(i - j) == 2) {
+            val rookPos = (i + j) / 2
+            val rookStart = if (j < i) SunfishEngineConfig.A1 else SunfishEngineConfig.H1
+            score += (SunfishEngineConfig.pst['R']?.get(rookPos) ?: 0) - (SunfishEngineConfig.pst['R']?.get(rookStart) ?: 0)
+        }
+        if (p == 'P') {
+            if (j in SunfishEngineConfig.A8..SunfishEngineConfig.H8) {
+                score += (SunfishEngineConfig.pst[prom!!]?.get(j) ?: 0) - (SunfishEngineConfig.pst['P']?.get(j) ?: 0)
+            }
+            if (j == ep) {
+                score += SunfishEngineConfig.pst['P']?.get(119 - (j + S)) ?: 0
+            }
+        }
+        return score
+    }
+
     private fun Char.swapCase(): Char = if (isUpperCase()) lowercaseChar() else uppercaseChar()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as SunfishPosition
+        if (!board.contentEquals(other.board)) return false
+        if (score != other.score) return false
+        if (wc != other.wc) return false
+        if (bc != other.bc) return false
+        if (ep != other.ep) return false
+        if (kp != other.kp) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = board.contentHashCode()
+        result = 31 * result + score
+        result = 31 * result + wc.hashCode()
+        result = 31 * result + bc.hashCode()
+        result = 31 * result + ep
+        result = 31 * result + kp
+        return result
+    }
 }
 
-// --- NOVO: Klasa za pretragu ---
-
-/**
- * Predstavlja unos u transpozicionoj tabeli.
- */
 private data class TTEntry(val lower: Int, val upper: Int)
 
-/**
- * Glavna klasa za pretragu, "mozak" engine-a.
- */
 class SunfishSearcher {
     private var nodes = 0
-    private var history = setOf<SunfishPosition>()
+    private var history = setOf<List<Char>>()
     private val ttScore = mutableMapOf<Pair<SunfishPosition, Int>, TTEntry>()
     private val ttMove = mutableMapOf<SunfishPosition, SunfishMove>()
 
-    /**
-     * Glavna funkcija za pretragu, koristi alfa-beta algoritam.
-     */
-    private fun bound(pos: SunfishPosition, gamma: Int, depth: Int, canNull: Boolean = true): Int {
+    private fun bound(pos: SunfishPosition, gamma: Int, depth: Int, canNull: Boolean = true, currentDepth: Int = 0): Int {
+        if (currentDepth > 64) return pos.score
+
         nodes++
         val d = max(depth, 0)
-
         if (pos.score <= -SunfishEngineConfig.MATE_LOWER) return -SunfishEngineConfig.MATE_UPPER
-
         val entry = ttScore.getOrDefault(Pair(pos, d), TTEntry(-SunfishEngineConfig.MATE_UPPER, SunfishEngineConfig.MATE_UPPER))
         if (entry.lower >= gamma) return entry.lower
         if (entry.upper < gamma) return entry.upper
-
-        if (d > 0 && canNull && pos in history) return 0
+        if (d > 0 && canNull && pos.board.toList() in history) return 0
 
         var best = -SunfishEngineConfig.MATE_UPPER
+        var bestMove: SunfishMove? = null
 
-        // Generišemo i sortiramo poteze
-        val moves = pos.genMoves().sortedByDescending { pos.value(it) }
-        val killer = ttMove[pos]
-
-        // Null-move pruning (preskakanje poteza)
         if (d > 2 && canNull && abs(pos.score) < 500) {
-            val nullScore = -bound(pos.rotate(), 1 - gamma, d - 3, canNull = false)
+            val nullPos = pos.rotate(nullMove = true)
+            val nullScore = -bound(nullPos, 1 - gamma, d - 3, canNull = false, currentDepth = currentDepth + 1)
             best = max(best, nullScore)
             if (best >= gamma) return best
         }
 
-        // Pretraga poteza
-        for (move in (listOfNotNull(killer) + moves).distinct()) {
-            val score = -bound(pos.move(move), 1 - gamma, d - 1)
+        val moves = pos.genMoves()
+        val sortedMoves = moves.sortedByDescending { pos.value(it) }
+        val killer = ttMove[pos]
+
+        // NOVO: Filtriramo SVE poteze koji ostavljaju kralja u šahu
+        val legalMoves = (listOfNotNull(killer) + sortedMoves).distinct().filter { move ->
+            !pos.move(move).rotate(true).isKingAttacked()
+        }
+
+        for (move in legalMoves) {
+            val score = -bound(pos.move(move), 1 - gamma, d - 1, true, currentDepth = currentDepth + 1)
             if (score > best) {
                 best = score
+                bestMove = move
                 if (best >= gamma) {
                     ttMove[pos] = move
                     break
@@ -132,113 +261,125 @@ class SunfishSearcher {
             }
         }
 
-        // Provera za pat i mat
-        if (d > 2 && best == -SunfishEngineConfig.MATE_UPPER) {
-            val flipped = pos.rotate()
-            val inCheck = bound(flipped, SunfishEngineConfig.MATE_UPPER, 0) == SunfishEngineConfig.MATE_UPPER
-            best = if (inCheck) -SunfishEngineConfig.MATE_LOWER else 0
+        if (bestMove != null) {
+            ttMove[pos] = bestMove
         }
 
-        // Čuvanje rezultata u transpozicionu tabelu
+        if (d > 0 && best == -SunfishEngineConfig.MATE_UPPER) {
+            val flipped = pos.rotate(nullMove = true)
+            val inCheck = bound(flipped, SunfishEngineConfig.MATE_UPPER, 0, false, currentDepth = currentDepth + 1) > SunfishEngineConfig.MATE_LOWER
+            best = if (inCheck) -SunfishEngineConfig.MATE_LOWER else 0
+        }
         if (best >= gamma) ttScore[Pair(pos, d)] = TTEntry(best, entry.upper)
         if (best < gamma) ttScore[Pair(pos, d)] = TTEntry(entry.lower, best)
-
         return best
     }
 
-    /**
-     * Glavna funkcija koja se poziva spolja. Koristi iterativno produbljivanje.
-     * @param history Lista prethodnih pozicija da bi se izbeglo ponavljanje.
-     * @return Sekvenca rezultata (dubina, najbolji potez).
-     */
     fun search(history: List<SunfishPosition>, timeLimitSec: Double = 1.0): Pair<SunfishMove?, Int> {
         nodes = 0
-        this.history = history.toSet()
+        this.history = history.map { it.board.toList() }.toSet()
         ttScore.clear()
         ttMove.clear()
-
         var bestMove: SunfishMove? = null
         var score = 0
-
         val startTime = System.currentTimeMillis()
-
-        // Iterativno produbljivanje
-        for (depth in 1..100) { // Limitiramo dubinu da ne bi trajalo večno
+        for (depth in 1..100) {
             score = bound(history.last(), 0, depth, canNull = false)
             bestMove = ttMove[history.last()]
-
-            // Proveri da li je vreme isteklo
             if ((System.currentTimeMillis() - startTime) / 1000.0 > timeLimitSec) {
                 break
             }
         }
-
         return Pair(bestMove, score)
     }
 }
-/**
- * NOVO: Glavna klasa koja služi као "most" između naše aplikacije i Sunfish logike.
- */
+
 class SunfishEngine {
     private val searcher = SunfishSearcher()
     private var history: List<SunfishPosition>
+    private var isEngineCalculatingForBlack = false
 
     init {
-        // Inicijalizujemo tablu sa početnom pozicijom
         val initialBoard = SunfishEngineConfig.initialBoardString.toCharArray()
         val initialPos = SunfishPosition(
-            board = initialBoard,
-            score = 0,
-            wc = Pair(true, true),
-            bc = Pair(true, true),
-            ep = 0,
-            kp = 0
+            board = initialBoard, score = 0, wc = Pair(true, true), bc = Pair(true, true), ep = 0, kp = 0
         )
         history = listOf(initialPos)
     }
 
-    /**
-     * Postavlja poziciju na osnovu FEN stringa.
-     */
     fun setPositionFromFen(fen: String) {
-        // TODO: Implementirati punu logiku za konverziju FEN-a u SunfishPosition
-        // Za sada, ova funkcija samo resetuje istoriju na početnu poziciju
-        // da bismo izbegli greške. Ovo ćemo morati da unapredimo.
-        val initialBoard = SunfishEngineConfig.initialBoardString.toCharArray()
-        val initialPos = SunfishPosition(
-            board = initialBoard,
-            score = 0,
-            wc = Pair(true, true),
-            bc = Pair(true, true),
-            ep = 0,
-            kp = 0
-        )
-        history = listOf(initialPos)
+        val parts = fen.split(" ")
+        val piecePlacement = parts[0]
+        val activeColor = parts[1]
+        val castling = parts[2]
+        val enPassant = parts[3]
+        val newBoard = " ".repeat(120).toCharArray()
+        var i = 0
+        var rank = 8
+        var file = 0
+        while (i < piecePlacement.length) {
+            val char = piecePlacement[i]
+            when {
+                char == '/' -> { rank--; file = 0 }
+                char.isDigit() -> { file += char.digitToInt() }
+                else -> {
+                    val boardIndex = SunfishEngineConfig.A8 + file - (rank - 8) * 10
+                    newBoard[boardIndex] = char
+                    file++
+                }
+            }
+            i++
+        }
+        for (r in 1..8) {
+            for (f in 0..7) {
+                val boardIndex = SunfishEngineConfig.A1 + f - 10 * (r - 1)
+                if (newBoard[boardIndex] == ' ') {
+                    newBoard[boardIndex] = '.'
+                }
+            }
+        }
+        val wc = Pair(castling.contains('Q'), castling.contains('K'))
+        val bc = Pair(castling.contains('q'), castling.contains('k'))
+        val ep = if (enPassant != "-") parse(enPassant) else 0
+        var position = SunfishPosition(newBoard, 0, wc, bc, ep, 0)
+
+        isEngineCalculatingForBlack = (activeColor == "b")
+
+        if (isEngineCalculatingForBlack) {
+            position = position.rotate()
+        }
+        history = listOf(position)
     }
 
-    /**
-     * Pronalazi najbolji potez za trenutnu poziciju.
-     * @return Potez u "long algebraic notation" formatu (npr. "g1f3").
-     */
     fun searchBestMove(timeLimitSec: Double = 1.0): String? {
-        val (bestMove, _) = searcher.search(history, timeLimitSec)
+        val (bestMove, score) = searcher.search(history, timeLimitSec)
 
         if (bestMove != null) {
-            // Primenjujemo potez na našu internu istoriju
             history = history + listOf(history.last().move(bestMove))
+            var from = bestMove.i
+            var to = bestMove.j
 
-            // Konvertujemo indekse (0-119) u algebarsku notaciju (a1, h8)
-            val from = render(bestMove.i)
-            val to = render(bestMove.j)
-            return "$from$to${bestMove.prom?.lowercase() ?: ""}"
+            if (isEngineCalculatingForBlack) {
+                from = 119 - from
+                to = 119 - to
+            }
+
+            val moveStr = "${render(from)}${render(to)}${bestMove.prom?.lowercase() ?: ""}"
+            return moveStr
+        } else {
+            return null
         }
-        return null
     }
 
-    // Pomoćna funkcija za konverziju indeksa u notaciju
+    private fun parse(algebraic: String): Int {
+        val file = algebraic[0] - 'a'
+        val rank = algebraic[1].digitToInt()
+        return SunfishEngineConfig.A1 + file - 10 * (rank - 1)
+    }
+
     private fun render(i: Int): String {
-        val rank = (i - SunfishEngineConfig.A1) / 10
-        val file = (i - SunfishEngineConfig.A1) % 10
-        return "${'a' + file}${-rank + 1}"
+        val rank = (119 - i) / 10 - 1
+        val file = (i % 10) - 1
+        return ('a' + file).toString() + rank.toString()
     }
 }
