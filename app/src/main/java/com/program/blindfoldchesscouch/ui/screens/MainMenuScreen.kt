@@ -5,20 +5,27 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.program.blindfoldchesscouch.navigation.AppRoutes
 import com.program.blindfoldchesscouch.navigation.TrainingModule
+import com.program.blindfoldchesscouch.navigation.trainingModules
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainMenuScreen(
-    modules: List<TrainingModule>,
-    onModuleSelected: (String) -> Unit
+    onModuleSelected: (String) -> Unit,
+    onNavigate: (String) -> Unit // Параметар за навигацију ка екранима који нису модули
 ) {
+    // Стање за праћење да ли је мени отворен или затворен
+    var menuExpanded by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -26,7 +33,32 @@ fun MainMenuScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary
-                )
+                ),
+                // Акције које се приказују у горњој траци
+                actions = {
+                    // Кутија која служи као "сидро" за падајући мени
+                    Box {
+                        // Иконица са три тачке која отвара мени
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Još opcija")
+                        }
+                        // Падајући мени
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false } // Затвара се кликом ван менија
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Uputstvo") },
+                                onClick = {
+                                    menuExpanded = false
+                                    // Позивамо навигацију ка екрану са упутствима
+                                    onNavigate(AppRoutes.INSTRUCTIONS)
+                                }
+                            )
+                            // Овде ћеш у будућности додати "Settings", "Profil", итд.
+                        }
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -37,7 +69,7 @@ fun MainMenuScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(modules) { module ->
+            items(trainingModules) { module ->
                 ModuleCard(module = module, onClick = {
                     onModuleSelected(module.route)
                 })

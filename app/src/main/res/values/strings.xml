@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">BlindfoldChessCouch</string>
+    <string name="tutorial_step_1"><![CDATA[Почињемо са потезом пешака.<pause>500</pause> Прво, означавамо почетно поље: <hl>e2</hl>. <pause>1000</pause> Затим, означавамо циљно поље: <hl>e4</hl>.]]></string>
+    <string name="tutorial_step_2"><![CDATA[<clear></clear>Браво! Одигран је потез e4. <pause>1000</pause>Сада је на реду црни.]]></string>
+    <string name="tutorial_step_3"><![CDATA[Црни одговара потезом скакача са <hl>g8</hl> на <hl>f6</hl>.]]></string>
 </resources>
