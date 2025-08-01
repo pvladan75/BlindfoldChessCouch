@@ -49,7 +49,7 @@ object TutorialRepository {
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_4,
-            fen = "8/8/8/8/2R5/8/8/8 w - - 0 1" // Top na c4
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Top na c4
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_5,

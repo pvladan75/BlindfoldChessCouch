@@ -6,7 +6,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -70,19 +75,36 @@ fun InstructionsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // *** ИЗМЕНА: Додато ново дугме за Pause/Resume ***
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Button(
                     onClick = { viewModel.onBackClicked() },
-                    enabled = uiState.canGoBack && !uiState.isProcessing
+                    enabled = uiState.canGoBack
                 ) {
                     Text("Nazad")
                 }
+
+                // Pause/Resume дугме са иконицом
+                IconButton(
+                    onClick = { viewModel.onTogglePauseResume() },
+                    // Омогућено само док анимација траје
+                    enabled = uiState.isProcessing
+                ) {
+                    Icon(
+                        // Мењамо иконицу у зависности од тога да ли је паузирано
+                        imageVector = if (uiState.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                        contentDescription = if (uiState.isPaused) "Nastavi" else "Pauziraj",
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
                 Button(
                     onClick = { viewModel.onNextClicked() },
-                    enabled = uiState.canGoForward && !uiState.isProcessing
+                    enabled = uiState.canGoForward
                 ) {
                     Text("Napred")
                 }
@@ -91,6 +113,7 @@ fun InstructionsScreen(
     }
 }
 
+// ... остатак кода (TutorialChessBoard, TutorialChessSquare) остаје потпуно исти ...
 @Composable
 fun TutorialChessBoard(
     board: Board,
@@ -131,7 +154,6 @@ fun TutorialChessSquare(
     val darkSquareColor = Color(0xFFB58863)
     val highlightColor = Color(0x99FFC107)
 
-    // *** ИСПРАВКА ЈЕ ОВДЕ: Замењена места бојама ***
     val squareColor = if ((square.file - 'a' + square.rank) % 2 == 0) lightSquareColor else darkSquareColor
 
     Box(

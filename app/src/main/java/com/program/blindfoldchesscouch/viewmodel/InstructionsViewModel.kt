@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Definicija UiState ostaje ista...
 data class InstructionsUiState(
     val currentStep: TutorialStep?,
     val board: Board = Board(),
@@ -22,18 +21,16 @@ data class InstructionsUiState(
     val isProcessing: Boolean = true,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = true,
-    val highlightedSquares: Set<Square> = emptySet()
+    val highlightedSquares: Set<Square> = emptySet(),
+    val isPaused: Boolean = false // *** НОВО: Стање за паузу ***
 )
 
-// *** ИЗМЕНА: ViewModel sada nasleđuje AndroidViewModel ***
 class InstructionsViewModel(
-    application: Application, // Dobijamo Application context
+    application: Application,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    // *** НОВО: Kreiramo instancu SoundManager-a ***
     private val soundManager = SoundManager(application.applicationContext)
-
     private val topicId: String? = savedStateHandle["topicId"]
     private val tutorialScript: List<TutorialStep> = TutorialRepository.getScriptById(topicId)
 
@@ -67,6 +64,11 @@ class InstructionsViewModel(
         }
     }
 
+    // *** НОВО: Функција за Pause/Resume дугме ***
+    fun onTogglePauseResume() {
+        _uiState.update { it.copy(isPaused = !it.isPaused) }
+    }
+
     private fun loadStep(index: Int) {
         processorJob?.cancel()
         val step = tutorialScript[index]
@@ -81,12 +83,14 @@ class InstructionsViewModel(
                 displayedText = "",
                 canGoBack = index > 0,
                 canGoForward = index < tutorialScript.lastIndex,
-                highlightedSquares = emptySet()
+                highlightedSquares = emptySet(),
+                isPaused = false // Resetujemo pauzu на сваком новом кораку
             )
         }
     }
 
     private fun parseText(text: String): List<TutorialSegment> {
+        // ... parseText функција остаје потпуно иста ...
         val segments = mutableListOf<TutorialSegment>()
         val regex = """<(\w+)>([^<]*)</\1>""".toRegex()
         var lastIndex = 0
@@ -101,7 +105,6 @@ class InstructionsViewModel(
 
             when (tagName) {
                 "hl" -> {
-                    segments.add(TextSegment(tagContent))
                     Square.fromAlgebraicNotation(tagContent)?.let {
                         segments.add(HighlightSegment(it))
                     }
@@ -128,11 +131,15 @@ class InstructionsViewModel(
             _uiState.update { it.copy(displayedText = "", highlightedSquares = emptySet()) }
 
             for (segment in segments) {
+                // *** ИЗМЕНА: Проверавамо да ли је паузирано пре сваког сегмента ***
+                while (_uiState.value.isPaused) { delay(100) }
+
                 when (segment) {
                     is TextSegment -> {
                         segment.text.forEach { char ->
+                            // *** ИЗМЕНА: Проверавамо да ли је паузирано пре сваког слова ***
+                            while (_uiState.value.isPaused) { delay(100) }
                             _uiState.update { it.copy(displayedText = it.displayedText + char) }
-                            // *** НОВО: Puštamo zvuk za svaki karakter ***
                             soundManager.playTypeSound()
                             delay(40)
                         }
@@ -154,7 +161,6 @@ class InstructionsViewModel(
         }
     }
 
-    // *** НОВО: Oslobađamo resurse kada se ViewModel uništi ***
     override fun onCleared() {
         super.onCleared()
         soundManager.release()
