@@ -1,6 +1,25 @@
 <resources>
     <string name="app_name">BlindfoldChessCouch</string>
-    <string name="tutorial_step_1"><![CDATA[Почињемо са потезом пешака.<pause>500</pause> Прво, означавамо почетно поље: <hl>e2</hl>. <pause>1000</pause> Затим, означавамо циљно поље: <hl>e4</hl>.]]></string>
-    <string name="tutorial_step_2"><![CDATA[<clear></clear>Браво! Одигран је потез e4. <pause>1000</pause>Сада је на реду црни.]]></string>
-    <string name="tutorial_step_3"><![CDATA[Црни одговара потезом скакача са <hl>g8</hl> на <hl>f6</hl>.]]></string>
+
+    <string name="tutorial_step_0"><![CDATA[<clear></clear><pause>500</pause>Dobrodošao u svet šaha naslepo.<pause>1000</pause>Ovo je važan korak napred u razvoju tvoje sposobnosti da <pause>200</pause>zamislis celu tablu u glavi.<pause>1500</pause>To je veština koja zahteva <pause>300</pause>posvećenost, koncentraciju i vežbu.<pause>1000</pause>Ova aplikacija je tvoj saputnik na tom putu.<pause>1000</pause>Na tebi je da iskoristiš njen potencijal. Počnimo!]]></string>
+
+    <string name="tutorial_step_1"><![CDATA[<clear></clear>Svako polje na tabli ima oznaku sastavljenu od jednog slova i jednog broja.<pause>1000</pause>Slova označavaju kolone: od <hl>a1</hl> do <hl>a8</hl> je kolona \'a\'.<pause>1000</pause>Brojevi označavaju redove: od <hl>a1</hl> do <hl>h1</hl> је red 1.<pause>1000</pause>Dakle, polje <hl>e4</hl> se nalazi u koloni \'e\' i u redu 4.]]></string>
+
+    <string name="tutorial_step_2"><![CDATA[<clear></clear>Sada pogledajmo neka konkretna polja:<pause>1000</pause><hl>c6</hl> je treća kolona i šesti red.<pause>500</pause><hl>h3</hl> je osma kolona i treći red.<pause>500</pause><hl>b2</hl> je druga kolona i drugi red.]]></string>
+
+    <string name="tutorial_step_3"><![CDATA[<clear></clear>Postoji jedno pravilo koje možeš koristiti da odrediš boju polja bez gledanja u tablu.<pause>1000</pause>Ako je zbir broja kolone i reda paran — polje je crno.<pause>1000</pause>Na primer, <hl>d6</hl>: d = 4, red = 6, zbir je 10 → crno.<pause>1000</pause>Ako je zbir neparan — polje je belo.<pause>500</pause>Na primer, <hl>e4</hl>: e = 5, red = 4, zbir 9 → belo.]]></string>
+
+    <string name="tutorial_step_4"><![CDATA[<clear></clear>Pogledajmo sada kretanje figura. Počinjemo sa topom.<pause>1000</pause>Postavimo topa na <hl>c4</hl>.<pause>1000</pause>Top može da ide horizontalno i vertikalno — znači po istom redu ili istoj koloni.<pause>1000</pause>To znači: <hl>c1</hl>, <hl>c2</hl>, <hl>c3</hl>, <hl>c5</hl>, <hl>c6</hl>, <hl>c7</hl>, <hl>c8</hl><pause>500</pause> i <hl>a4</hl>, <hl>b4</hl>, <hl>d4</hl>, <hl>e4</hl>, <hl>f4</hl>, <hl>g4</hl>, <hl>h4</hl>.<pause>1000</pause>Kada top ide po koloni, njegova horizontalna koordinata ostaje ista.<pause>500</pause>Kada ide po redu, vertikalna koordinata ostaje ista.]]></string>
+
+    <string name="tutorial_step_5"><![CDATA[<clear></clear>Sada postavljamo lovca na <hl>f3</hl>.<pause>1000</pause>Lovac se kreće dijagonalno — dakle samo po kosim linijama.<pause>1000</pause>Sa svakog polja, lovac ima dve dijagonale na raspolaganju.<pause>1000</pause>Na jednoj dijagonali, zbir koordinata svih polja je isti — npr. <hl>g2</hl>, <hl>h1</hl> (zbir 9).<pause>1000</pause>Na drugoj dijagonali, razlika između koordinata je ista — npr. <hl>e2</hl>, <hl>d1</hl> (razlika 1).<pause>1000</pause>Lovac sa <hl>f3</hl> može na <hl>e2</hl>, <hl>d1</hl>, <hl>e4</hl>, <hl>g2</hl>, <hl>g4</hl>, <hl>h5</hl>.]]></string>
+
+    <string name="tutorial_step_6"><![CDATA[<clear></clear>Dama se kreće i kao top i kao lovac.<pause>1000</pause>Postavimo damu na <hl>d5</hl>.<pause>1000</pause>Može da ide po redu: <hl>a5</hl> do <hl>h5</hl>.<pause>500</pause>Po koloni: <hl>d1</hl> do <hl>d8</hl>.<pause>500</pause>I po dijagonalama: <hl>c4</hl>, <hl>b3</hl>, <hl>a2</hl>, <hl>e6</hl>, <hl>f7</hl>, <hl>g8</hl>, itd.]]></string>
+
+    <string name="tutorial_step_7"><![CDATA[<clear></clear>Sada skakač. Postavimo ga na <hl>e5</hl>.<pause>1000</pause>Skakač se kreće u obliku slova “L”.<pause>1000</pause>To znači da se jedna koordinata menja za 2, a druga za 1.<pause>1000</pause>Skokovi su: <hl>c4</hl>, <hl>c6</hl>, <hl>d3</hl>, <hl>d7</hl>, <hl>f3</hl>, <hl>f7</hl>, <hl>g4</hl>, <hl>g6</hl>.<pause>1000</pause>Skakač preskače sve figure između.]]></string>
+
+    <string name="tutorial_step_8"><![CDATA[<clear></clear>Beli pešak počinje sa <hl>e2</hl>.<pause>1000</pause>Može da ide napred na <hl>e3</hl> ili <hl>e4</hl> ako je prvi potez.<pause>1000</pause>Ako je već na <hl>e4</hl>, onda može da ide samo na <hl>e5</hl>.<pause>1000</pause>Tuče dijagonalno: <hl>d5</hl> i <hl>f5</hl>.]]></string>
+
+    <string name="tutorial_step_9"><![CDATA[<clear></clear>Crni pešak sa <hl>d7</hl> može da ide na <hl>d6</hl> i <hl>d5</hl>.<pause>1000</pause>Tuče dijagonalno: <hl>c5</hl> i <hl>e5</hl>.<pause>1000</pause>Za razliku od ostalih figura, pešak ne može nazad.]]></string>
+
+    <string name="tutorial_step_10"><![CDATA[<clear></clear>Bravo!<pause>1000</pause>Upoznao si koordinate, boje polja i osnovno kretanje figura.<pause>1500</pause>Nastavi dalje i uskoro će cela tabla živeti u tvojoj mašti.]]></string>
 </resources>

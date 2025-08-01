@@ -338,7 +338,8 @@ fun Module3ChessBoard(
             Row {
                 for (file in 'a'..'h') {
                     val square = Square(file, rank)
-                    val baseColor = if ((file - 'a' + rank) % 2 == 0) darkSquareColorM3 else lightSquareColorM3
+                    // *** ИСПРАВКА ЈЕ ОВДЕ ***
+                    val baseColor = if ((file - 'a' + rank) % 2 == 0) lightSquareColorM3 else darkSquareColorM3
                     val finalColor = when (square) {
                         feedbackSquare?.first -> if (feedbackSquare.second) feedbackCorrectColor else feedbackWrongColor
                         moveHighlight?.from -> moveFromColor

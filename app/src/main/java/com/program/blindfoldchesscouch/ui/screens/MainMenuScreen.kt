@@ -21,9 +21,8 @@ import com.program.blindfoldchesscouch.navigation.trainingModules
 @Composable
 fun MainMenuScreen(
     onModuleSelected: (String) -> Unit,
-    onNavigate: (String) -> Unit // Параметар за навигацију ка екранима који нису модули
+    onNavigate: (String) -> Unit
 ) {
-    // Стање за праћење да ли је мени отворен или затворен
     var menuExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -34,28 +33,23 @@ fun MainMenuScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary
                 ),
-                // Акције које се приказују у горњој траци
                 actions = {
-                    // Кутија која служи као "сидро" за падајући мени
                     Box {
-                        // Иконица са три тачке која отвара мени
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "Još opcija")
                         }
-                        // Падајући мени
                         DropdownMenu(
                             expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false } // Затвара се кликом ван менија
+                            onDismissRequest = { menuExpanded = false }
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Uputstvo") },
                                 onClick = {
                                     menuExpanded = false
-                                    // Позивамо навигацију ка екрану са упутствима
-                                    onNavigate(AppRoutes.INSTRUCTIONS)
+                                    // *** ИСПРАВКА: Шаљемо на TUTORIAL_MENU уместо на INSTRUCTIONS ***
+                                    onNavigate(AppRoutes.TUTORIAL_MENU)
                                 }
                             )
-                            // Овде ћеш у будућности додати "Settings", "Profil", итд.
                         }
                     }
                 }

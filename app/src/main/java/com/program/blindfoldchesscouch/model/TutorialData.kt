@@ -3,7 +3,6 @@ package com.program.blindfoldchesscouch.model
 
 import com.program.blindfoldchesscouch.R
 
-// Novi model koji predstavlja jednu temu u meniju za uputstva
 data class TutorialTopic(
     val id: String,
     val title: String,
@@ -12,12 +11,11 @@ data class TutorialTopic(
 
 object TutorialRepository {
 
-    // Lista svih dostupnih tema koje ćemo prikazati u meniju
     val topics = listOf(
         TutorialTopic(
             id = "board_and_squares",
-            title = "Osnove: Tabla i polja",
-            description = "Naučite kako da vizuelizujete tablu i imenujete svako polje."
+            title = "Osnove: Tabla i figure", // Malo smo promenili naslov
+            description = "Naučite kako da vizuelizujete tablu, polja i kretanje figura."
         ),
         TutorialTopic(
             id = "module_1_guide",
@@ -31,23 +29,54 @@ object TutorialRepository {
         )
     )
 
-    // Scenario za prvu temu
+    // *** ИЗМЕНА: Проширена листа са свим твојим новим корацима и FEN-овима ***
     val boardAndSquaresTutorial: List<TutorialStep> = listOf(
         TutorialStep(
+            textResId = R.string.tutorial_step_0, // Uvodni korak
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla za uvod
+        ),
+        TutorialStep(
             textResId = R.string.tutorial_step_1,
-            fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_2,
-            fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_3,
-            fen = "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2"
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_4,
+            fen = "8/8/8/8/2R5/8/8/8 w - - 0 1" // Top na c4
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_5,
+            fen = "8/8/8/8/8/5B2/8/8 w - - 0 1" // Lovac na f3
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_6,
+            fen = "8/8/8/3Q4/8/8/8/8 w - - 0 1" // Dama na d5
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_7,
+            fen = "8/8/8/4N3/8/8/8/8 w - - 0 1" // Skakač na e5
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_8,
+            fen = "8/8/8/8/8/8/4P3/8 w - - 0 1" // Beli pešak na e2
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_9,
+            fen = "8/3p4/8/8/8/8/8/8 b - - 0 1" // Crni pešak na d7
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_10,
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla za kraj
         )
     )
 
-    // Ovde ćemo dodati scenarije za ostale tutorijale
     val module1Tutorial: List<TutorialStep> = listOf(
         // TODO: Dodati korake za Modul 1
     )
@@ -55,13 +84,12 @@ object TutorialRepository {
         // TODO: Dodati korake za Modul 2
     )
 
-    // Funkcija koja vraća pravi scenario na osnovu ID-ja
     fun getScriptById(topicId: String?): List<TutorialStep> {
         return when (topicId) {
             "board_and_squares" -> boardAndSquaresTutorial
             "module_1_guide" -> module1Tutorial
             "module_2_guide" -> module2Tutorial
-            else -> boardAndSquaresTutorial // Vrati osnovni ako je greška
+            else -> boardAndSquaresTutorial
         }
     }
 }

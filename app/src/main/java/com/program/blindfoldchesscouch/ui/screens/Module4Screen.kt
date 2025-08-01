@@ -47,7 +47,6 @@ fun Module4Screen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // *** ИЗМЕНА: Прослеђујемо све нове информације у InfoPanel ***
                 InfoPanel(
                     statusMessage = uiState.statusMessage,
                     lastBlackMove = uiState.lastBlackMove,
@@ -74,7 +73,6 @@ fun Module4Screen(
     }
 }
 
-// *** ИЗМЕНА: InfoPanel сада приказује више информација ***
 @Composable
 fun InfoPanel(statusMessage: String, lastBlackMove: String?, blackPiecesInfo: String) {
     Column(
@@ -109,7 +107,6 @@ fun InfoPanel(statusMessage: String, lastBlackMove: String?, blackPiecesInfo: St
 }
 
 
-// --- Остатак кода остаје исти ---
 @Composable
 fun ActionButtons(
     arePiecesVisible: Boolean,
@@ -183,7 +180,8 @@ fun InteractiveChessSquare(
     val darkSquareColor = Color(0xFFB58863)
     val selectedColor = Color(0xFF6C9950)
 
-    val squareColor = if (isSelected) selectedColor else if ((square.file - 'a' + square.rank) % 2 == 0) darkSquareColor else lightSquareColor
+    // *** ИСПРАВКА ЈЕ ОВДЕ ***
+    val squareColor = if (isSelected) selectedColor else if ((square.file - 'a' + square.rank) % 2 == 0) lightSquareColor else darkSquareColor
 
     Box(
         modifier = modifier

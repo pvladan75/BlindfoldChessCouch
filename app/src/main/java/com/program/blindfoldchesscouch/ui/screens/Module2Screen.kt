@@ -255,7 +255,9 @@ fun Module2ChessBoard(
             Row {
                 for (file in 'a'..'h') {
                     val square = Square(file, rank)
-                    val baseColor = if (square == selectedSquare) { selectedSquareColor } else { if ((file - 'a' + rank) % 2 == 0) darkSquareColorM2 else lightSquareColorM2 }
+                    // *** ИСПРАВКА ЈЕ ОВДЕ ***
+                    val normalColor = if ((file - 'a' + rank) % 2 == 0) lightSquareColorM2 else darkSquareColorM2
+                    val baseColor = if (square == selectedSquare) selectedSquareColor else normalColor
                     Box(modifier = Modifier.weight(1f).aspectRatio(1f).background(baseColor).clickable { onSquareClick(square) }, contentAlignment = Alignment.Center) {
                         board.getPieceAt(square)?.let { piece ->
                             Image(

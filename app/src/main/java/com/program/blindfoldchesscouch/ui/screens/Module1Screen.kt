@@ -78,12 +78,10 @@ private fun BottomControlPanel(uiState: Module1UiState, viewModel: Module1ViewMo
         Spacer(Modifier.height(16.dp))
 
         if (uiState.mode == TrainingMode.OBSERVATION) {
-            // NOVO: Start/Stop dugme
             Button(
                 onClick = { viewModel.onToggleObservation() },
                 modifier = Modifier.width(200.dp)
             ) {
-                // Tekst na dugmetu se menja u zavisnosti od stanja
                 Text(if (uiState.isObservationRunning) "Stop" else "Start")
             }
 
@@ -95,7 +93,6 @@ private fun BottomControlPanel(uiState: Module1UiState, viewModel: Module1ViewMo
                 onValueChange = { viewModel.onDurationChange(it) },
                 valueRange = 1f..5f,
                 steps = 7,
-                // Onemogući slider dok je mod aktivan da se izbegnu bagovi
                 enabled = !uiState.isObservationRunning
             )
         } else {
@@ -112,7 +109,6 @@ private fun BottomControlPanel(uiState: Module1UiState, viewModel: Module1ViewMo
     }
 }
 
-// ... ostatak fajla (TopInfoPanel, QuizStatsView, SegmentedButtonRow, itd.) ostaje isti ...
 @Composable
 private fun TopInfoPanel(uiState: Module1UiState) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -207,7 +203,8 @@ fun ClickableChessBoard(
             Row {
                 for (file in files) {
                     val square = Square(file, rank)
-                    val baseColor = if ((file - 'a' + rank) % 2 == 0) darkSquareColor else lightSquareColor
+                    // *** ИСПРАВКА ЈЕ ОВДЕ ***
+                    val baseColor = if ((file - 'a' + rank) % 2 == 0) lightSquareColor else darkSquareColor
                     val finalColor = when (square) {
                         highlightedSquare -> highlightColor
                         wrongSquare -> wrongHighlightColor

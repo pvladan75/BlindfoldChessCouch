@@ -4,6 +4,8 @@ package com.program.blindfoldchesscouch.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -32,7 +34,6 @@ fun InstructionsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // LaunchedEffect će se pokrenuti samo ako se promeni korak i ako korak nije null
     LaunchedEffect(uiState.currentStep) {
         uiState.currentStep?.let { step ->
             val fullText = context.getString(step.textResId)
@@ -46,8 +47,7 @@ fun InstructionsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = uiState.displayedText,
@@ -56,14 +56,19 @@ fun InstructionsScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
                     .padding(vertical = 8.dp)
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             TutorialChessBoard(
                 board = uiState.board,
                 highlightedSquares = uiState.highlightedSquares
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -124,9 +129,10 @@ fun TutorialChessSquare(
 ) {
     val lightSquareColor = Color(0xFFF0D9B5)
     val darkSquareColor = Color(0xFFB58863)
-    val highlightColor = Color(0x996C9950)
+    val highlightColor = Color(0x99FFC107)
 
-    val squareColor = if ((square.file - 'a' + square.rank) % 2 == 0) darkSquareColor else lightSquareColor
+    // *** ИСПРАВКА ЈЕ ОВДЕ: Замењена места бојама ***
+    val squareColor = if ((square.file - 'a' + square.rank) % 2 == 0) lightSquareColor else darkSquareColor
 
     Box(
         modifier = modifier

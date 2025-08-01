@@ -1,9 +1,11 @@
 package com.program.blindfoldchesscouch.viewmodel
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.program.blindfoldchesscouch.model.*
+import com.program.blindfoldchesscouch.sound.SoundManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,9 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// Definicija UiState ostaje ista
+// Definicija UiState ostaje ista...
 data class InstructionsUiState(
-    val currentStep: TutorialStep?, // Može biti null ako scenario ne postoji
+    val currentStep: TutorialStep?,
     val board: Board = Board(),
     val displayedText: String = "",
     val isProcessing: Boolean = true,
@@ -23,14 +25,16 @@ data class InstructionsUiState(
     val highlightedSquares: Set<Square> = emptySet()
 )
 
+// *** ИЗМЕНА: ViewModel sada nasleđuje AndroidViewModel ***
 class InstructionsViewModel(
-    savedStateHandle: SavedStateHandle // Za prihvatanje argumenata iz navigacije
-) : ViewModel() {
+    application: Application, // Dobijamo Application context
+    savedStateHandle: SavedStateHandle
+) : AndroidViewModel(application) {
 
-    // Čitamo topicId koji je prosleđen kroz navigaciju
+    // *** НОВО: Kreiramo instancu SoundManager-a ***
+    private val soundManager = SoundManager(application.applicationContext)
+
     private val topicId: String? = savedStateHandle["topicId"]
-
-    // Učitavamo pravi scenario na osnovu dobijenog ID-ja
     private val tutorialScript: List<TutorialStep> = TutorialRepository.getScriptById(topicId)
 
     private val _uiState = MutableStateFlow(
@@ -42,11 +46,9 @@ class InstructionsViewModel(
     private var processorJob: Job? = null
 
     init {
-        // Učitavamo prvi korak ako scenario postoji
         if (tutorialScript.isNotEmpty()) {
             loadStep(currentStepIndex)
         } else {
-            // Slučaj ako scenario ne postoji (npr. prazna lista za Modul 1)
             _uiState.update { it.copy(isProcessing = false, displayedText = "Ovaj tutorijal još uvek nije dostupan.") }
         }
     }
@@ -130,6 +132,8 @@ class InstructionsViewModel(
                     is TextSegment -> {
                         segment.text.forEach { char ->
                             _uiState.update { it.copy(displayedText = it.displayedText + char) }
+                            // *** НОВО: Puštamo zvuk za svaki karakter ***
+                            soundManager.playTypeSound()
                             delay(40)
                         }
                     }
@@ -148,5 +152,11 @@ class InstructionsViewModel(
             }
             _uiState.update { it.copy(isProcessing = false) }
         }
+    }
+
+    // *** НОВО: Oslobađamo resurse kada se ViewModel uništi ***
+    override fun onCleared() {
+        super.onCleared()
+        soundManager.release()
     }
 }

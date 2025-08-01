@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource // Važan import
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.program.blindfoldchesscouch.model.Board
 import com.program.blindfoldchesscouch.model.Square
@@ -23,7 +23,8 @@ fun ChessBoard(board: Board) {
         for (rank in 8 downTo 1) {
             Row {
                 for (file in 'a'..'h') {
-                    val squareColor = if ((file - 'a' + rank) % 2 == 0) darkSquare else lightSquare
+                    // *** ИСПРАВКА ЈЕ ОВДЕ: Замењена места бојама ***
+                    val squareColor = if ((file - 'a' + rank) % 2 == 0) lightSquare else darkSquare
                     ChessSquare(
                         square = Square(file, rank),
                         board = board,
@@ -45,7 +46,6 @@ fun ChessSquare(square: Square, board: Board, modifier: Modifier = Modifier) {
     ) {
         val piece = board.getPieceAt(square)
         if (piece != null) {
-            // Sada koristimo standardni `painterResource` umesto Coil-a.
             Image(
                 painter = painterResource(id = getDrawableResourceForPiece(piece = piece)),
                 contentDescription = piece.toString(),
