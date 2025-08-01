@@ -49,32 +49,37 @@ object TutorialRepository {
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_4,
-            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Top na c4
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1"
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_5,
-            fen = "8/8/8/8/8/5B2/8/8 w - - 0 1" // Lovac na f3
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1"
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_6,
-            fen = "8/8/8/3Q4/8/8/8/8 w - - 0 1" // Dama na d5
+            fen = "8/8/8/8/2R5/8/8/8 w - - 0 1"// Top na c4
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_7,
-            fen = "8/8/8/4N3/8/8/8/8 w - - 0 1" // Skakač na e5
+            fen = "8/8/8/8/8/4B3/8/8 w - - 0 1" // Lovac na e3
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_8,
-            fen = "8/8/8/8/8/8/4P3/8 w - - 0 1" // Beli pešak na e2
+            fen = "8/8/8/8/2B5/4B3/8/8 w - - 0 1" // Lovci na e3 i c4
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_9,
-            fen = "8/3p4/8/8/8/8/8/8 b - - 0 1" // Crni pešak na d7
+            fen = "8/8/8/8/2Q5/8/8/8 w - - 0 1" // Dama na c4
         ),
         TutorialStep(
             textResId = R.string.tutorial_step_10,
-            fen = "8/8/8/8/8/8/8/8 w - - 0 1" // Prazna tabla za kraj
+            fen = "8/8/8/8/8/5N2/8/8 w - - 0 1" // Skakač na f3
+        ),
+        TutorialStep(
+            textResId = R.string.tutorial_step_11,
+            fen = "8/8/8/8/8/8/8/8 w - - 0 1" //
         )
+
     )
 
     val module1Tutorial: List<TutorialStep> = listOf(

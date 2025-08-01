@@ -11,8 +11,8 @@ import com.program.blindfoldchesscouch.viewmodel.GameViewModel
 
 object AppRoutes {
     const val MAIN_MENU = "main_menu"
-    const val TUTORIAL_MENU = "tutorial_menu" // Ruta za novi ekran sa sadržajem uputstva
-    const val INSTRUCTIONS = "instructions/{topicId}" // Ruta za interaktivni ekran sada prima argument
+    const val TUTORIAL_MENU = "tutorial_menu"
+    const val INSTRUCTIONS = "instructions/{topicId}"
 }
 
 @Composable
@@ -25,34 +25,43 @@ fun AppNavigation(gameViewModel: GameViewModel) {
             MainMenuScreen(
                 onModuleSelected = { moduleRoute -> navController.navigate(moduleRoute) },
                 onNavigate = { route ->
-                    // Klik na "Uputstvo" u meniju će pozvati ovo sa "tutorial_menu"
                     navController.navigate(route)
                 }
             )
         }
 
-        // Nova ruta za meni sa uputstvima
         composable(AppRoutes.TUTORIAL_MENU) {
             TutorialMenuScreen(onTopicSelected = { topicId ->
-                // Kada korisnik izabere temu, navigiramo na interaktivni ekran sa ID-jem te teme
                 navController.navigate("instructions/$topicId")
             })
         }
 
-        // Ažurirana ruta za interaktivni ekran koja prihvata "topicId"
         composable(
             route = AppRoutes.INSTRUCTIONS,
             arguments = listOf(navArgument("topicId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            // Prosleđujemo topicId ViewModel-u preko SavedStateHandle-a (automatski)
+        ) {
             InstructionsScreen()
         }
 
-        // Rute za module ostaju iste
         trainingModules.forEach { module ->
             composable(module.route) {
                 when (module.route) {
-                    "module_1" -> Module1Screen()
+                    // *** ИСПРАВКА ЈЕ ОВДЕ ***
+                    "module_1" -> Module1Screen(
+                        // Prosleđujemo funkciju za povratak na glavni meni
+                        onNavigateToMainMenu = {
+                            navController.navigate(AppRoutes.MAIN_MENU) {
+                                // Brišemo sve sa steka da korisnik ne može da se vrati nazad
+                                popUpTo(AppRoutes.MAIN_MENU) { inclusive = true }
+                            }
+                        },
+                        // Prosleđujemo funkciju za restartovanje Modula 1
+                        onNavigateToModule1Setup = {
+                            navController.navigate(module.route) {
+                                popUpTo(module.route) { inclusive = true }
+                            }
+                        }
+                    )
                     "module_2" -> Module2Screen()
                     "module_3" -> Module3Screen()
                     "module_4" -> Module4Screen()
